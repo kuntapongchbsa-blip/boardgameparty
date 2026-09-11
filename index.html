@@ -1,0 +1,1975 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ปาร์ตี้บอร์ดเกม (Party Board Games Hub)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS CDN -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- QRCode CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Google Fonts Kanit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 9999px;
+    }
+    .card-shadow {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    }
+    @keyframes pulse-siren {
+      0%, 100% { background-color: rgba(220, 38, 38, 0.2); }
+      50% { background-color: rgba(220, 38, 38, 0.6); }
+    }
+    .siren-active {
+      animation: pulse-siren 1s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col overflow-x-hidden antialiased selection:bg-amber-500 selection:text-black">
+
+  <!-- TOP GLOBAL NAV -->
+  <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 backdrop-blur">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center font-black text-xl text-black shadow-lg shadow-amber-500/20">
+        🎲
+      </div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight tracking-wide bg-gradient-to-r from-amber-400 via-rose-300 to-purple-400 bg-clip-text text-transparent">
+          ศูนย์รวมปาร์ตี้บอร์ดเกม
+        </h1>
+        <p class="text-xs text-slate-400" id="roleBadge">กำลังเริ่มต้น...</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <!-- Audio Toggle -->
+      <button id="soundToggleBtn" onclick="toggleSound()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition">
+        <span id="soundIcon">🔊</span>
+        <span id="soundText" class="hidden sm:inline">เปิดเสียง</span>
+      </button>
+
+      <!-- Wake Lock Indicator (Mobile) -->
+      <div id="wakeLockBadge" class="hidden px-2.5 py-1 rounded-md bg-emerald-950/80 border border-emerald-700/60 text-emerald-400 text-xs flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>กันจอดับ</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 flex flex-col p-3 md:p-6 max-w-7xl mx-auto w-full">
+
+    <!-- ================= VIEW 0: SELECT ROLE (HOST VS JOIN) ================= -->
+    <section id="roleSelectView" class="flex-1 flex flex-col items-center justify-center max-w-xl mx-auto w-full py-8">
+      <div class="text-center mb-8">
+        <span class="inline-block px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">
+          Zero-Backend • WebRTC P2P
+        </span>
+        <h2 class="text-3xl sm:text-4xl font-black text-white mb-2">เล่นเกมกับเพื่อนต่อหน้า</h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          ใช้ 1 จอกลาง (ทีวี/แท็บเล็ต) แสดงกระดาน และทุกคนใช้มือถือตัวเองเป็นจอยควบคุมดูไพ่ลับ
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+        <!-- Create Room (Central Screen) -->
+        <button onclick="setupAsHost()" class="group p-6 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-900/60 border-2 border-slate-800 hover:border-amber-500/60 text-left transition-all duration-200 card-shadow hover:-translate-y-1">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition">
+            📺
+          </div>
+          <h3 class="text-xl font-bold text-white mb-1 group-hover:text-amber-400 transition">สร้างห้องเป็นจอกลาง</h3>
+          <p class="text-xs text-slate-400 mb-3">
+            สำหรับเปิดบนทีวี, โน้ตบุ๊ก หรือแท็บเล็ตกลางโต๊ะ ไม่โชว์ไพ่ลับ พร้อมระบบเสียงเอฟเฟกต์
+          </p>
+          <span class="text-xs text-amber-400 font-semibold flex items-center gap-1">
+            เลือกเปิดหน้านี้ &rarr;
+          </span>
+        </button>
+
+        <!-- Join with Phone -->
+        <div class="p-6 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-900/60 border-2 border-slate-800 text-left card-shadow" id="joinCardContainer">
+          <div class="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-2xl mb-4">
+            📱
+          </div>
+          <h3 class="text-xl font-bold text-white mb-1">เข้าห้องด้วยมือถือ</h3>
+          <p class="text-xs text-slate-400 mb-4">
+            เป็นจอยถือดูการ์ดลับส่วนตัว และกดส่งคำสั่งเล่น
+          </p>
+          <div class="space-y-3">
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400 block mb-1">ชื่อเล่นของคุณ:</label>
+              <input type="text" id="joinNameInput" maxlength="12" placeholder="เช่น บอส, มิ้นท์, นิค..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm focus:outline-none focus:border-purple-500 text-white placeholder:text-slate-500">
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400 block mb-1">รหัสห้อง 4 หลัก (จากจอกลาง):</label>
+              <input type="text" id="joinCodeInput" maxlength="4" placeholder="เช่น ABCD" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-base uppercase tracking-widest font-mono text-center font-bold focus:outline-none focus:border-purple-500 text-amber-400 placeholder:text-slate-600">
+            </div>
+            
+            <button id="joinRoomBtn" onclick="joinRoomFromInput()" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-bold text-sm text-white transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+              <span id="joinBtnText">เข้าร่วมห้อง</span>
+              <div id="joinSpinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </button>
+            <div id="joinStatusMessage" class="text-xs text-center font-medium min-h-[16px] text-amber-400"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 1: HOST LOBBY & GAME HUB ================= -->
+    <section id="hostLobbyView" class="hidden flex-1 flex flex-col gap-6">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 card-shadow">
+        <div class="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+          <!-- QR Code Box with Loading Overlay -->
+          <div class="relative p-2 bg-white rounded-xl shadow-lg flex items-center justify-center min-w-[126px] min-h-[126px]">
+            <div id="qrcodeBox"></div>
+            <div id="qrLoading" class="absolute inset-0 bg-white/90 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-700">
+              <div class="w-5 h-5 border-2 border-slate-400 border-t-amber-500 rounded-full animate-spin mb-1"></div>
+              <span>สร้าง QR Code...</span>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-xs uppercase tracking-widest text-slate-400 font-semibold">รหัสเข้าห้อง (Room Code)</span>
+            <div class="flex items-center gap-3 justify-center sm:justify-start my-1">
+              <span id="hostRoomCodeDisplay" class="font-mono text-4xl sm:text-5xl font-black text-amber-400 tracking-wider">กำลังสร้าง...</span>
+              <button onclick="copyRoomLink()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700 transition" title="คัดลอกลิงก์">
+                📋 คัดลอกลิงก์
+              </button>
+            </div>
+            <div class="flex items-center gap-2 justify-center sm:justify-start">
+              <span id="hostNetworkStatus" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[11px] font-medium border border-amber-500/30">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>กำลังเชื่อมต่อ P2P Server...</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">สแกน QR Code ด้วยกล้องมือถือเพื่อเข้าเล่นได้ทันที</p>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
+          <div class="text-sm font-medium text-slate-300">
+            ผู้เล่นในห้อง: <span id="playerCountBadge" class="text-amber-400 font-bold text-lg">0</span> คน
+          </div>
+          <button id="startGameBtn" onclick="hostStartSelectedGame()" disabled class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white text-base disabled:opacity-40 disabled:cursor-not-allowed hover:from-emerald-500 hover:to-teal-500 transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
+            <span>🚀</span> เริ่มเกมทันที
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+        <div class="lg:col-span-2 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🎯</span> เลือกเกมที่ต้องการเล่น
+            </h3>
+            <span class="text-xs text-slate-400">เลือกเกมแล้วกดเริ่มเกมด้านบน</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Game 1: Coup -->
+            <div onclick="selectGame('coup')" id="gameCard-coup" class="game-card cursor-pointer p-4 rounded-2xl bg-slate-900/90 border-2 border-amber-500 text-left transition relative overflow-hidden card-shadow">
+              <div class="text-3xl mb-2">👑</div>
+              <div class="flex items-center justify-between mb-1">
+                <h4 class="font-black text-lg text-white">Coup (โค่นอำนาจ)</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40">2-6 คน</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3 line-clamp-2">
+                เกมบลัฟชิงไหวชิงพริบ แอบอ้างบทบาท ท้าทายจับโกหก และปฏิวัติล้มอำนาจศัตรู
+              </p>
+              <div class="text-[11px] text-amber-400/90 font-medium">
+                • 5 บทบาท: ดยุก, มือสังหาร, กัปตัน, ทูต, คอนเทสซา
+              </div>
+              <div class="absolute top-2 right-2 text-amber-400 font-bold text-xs selected-check">✓ เลือกแล้ว</div>
+            </div>
+
+            <!-- Game 2: Cabo -->
+            <div onclick="selectGame('cabo')" id="gameCard-cabo" class="game-card cursor-pointer p-4 rounded-2xl bg-slate-900/90 border-2 border-slate-800 hover:border-slate-700 text-left transition relative overflow-hidden card-shadow">
+              <div class="text-3xl mb-2">🦄</div>
+              <div class="flex items-center justify-between mb-1">
+                <h4 class="font-black text-lg text-white">Cabo (คาโบ)</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold border border-purple-500/40">2-6 คน</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3 line-clamp-2">
+                ตามหายูนิคอร์นคะแนนต่ำสุด แอบดูไพ่ตัวเอง ขโมยไพ่เพื่อน และชิงตะโกน CABO!
+              </p>
+              <div class="text-[11px] text-purple-400/90 font-medium">
+                • ไพ่คว่ำ 4 ใบ • สกิลดู/สลับ • คิดแต้มต่ำสุด
+              </div>
+              <div class="absolute top-2 right-2 text-amber-400 font-bold text-xs selected-check hidden">✓ เลือกแล้ว</div>
+            </div>
+
+            <!-- Game 3: Uno -->
+            <div onclick="selectGame('uno')" id="gameCard-uno" class="game-card cursor-pointer p-4 rounded-2xl bg-slate-900/90 border-2 border-slate-800 hover:border-slate-700 text-left transition relative overflow-hidden card-shadow">
+              <div class="text-3xl mb-2">🌈</div>
+              <div class="flex items-center justify-between mb-1">
+                <h4 class="font-black text-lg text-white">Uno (อูโน่)</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold border border-rose-500/40">2-10 คน</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3 line-clamp-2">
+                ลงไพ่ตามสีและตัวเลข ข้าม ย้อนกลับ +2 +4 อย่าลืมกด UNO และกดดักจับเพื่อน!
+              </p>
+              <div class="text-[11px] text-rose-400/90 font-medium">
+                • กฎคลาสสิก • ดักจับลืมพูด Uno (+2 ใบ)
+              </div>
+              <div class="absolute top-2 right-2 text-amber-400 font-bold text-xs selected-check hidden">✓ เลือกแล้ว</div>
+            </div>
+          </div>
+
+          <div id="selectedGameRules" class="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 text-xs text-slate-300 leading-relaxed"></div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col card-shadow">
+          <h3 class="text-sm font-bold text-white mb-3 flex items-center justify-between">
+            <span>👥 ผู้เล่นที่เข้าร่วม</span>
+            <span class="text-xs text-slate-500 font-normal">ต้องการอย่างน้อย 2 คน</span>
+          </h3>
+          <div id="hostPlayerList" class="flex-1 space-y-2 overflow-y-auto max-h-[300px] custom-scrollbar pr-1">
+            <div class="text-center py-8 text-slate-500 text-xs">
+              ยังไม่มีผู้เล่นเข้ามา สแกน QR Code เพื่อเข้าห้อง
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 2: HOST IN-GAME CENTRAL SCREEN ================= -->
+    <section id="hostGameView" class="hidden flex-1 flex flex-col gap-4">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 card-shadow">
+        <div class="flex items-center gap-3">
+          <span id="activeGameIcon" class="text-2xl">👑</span>
+          <div>
+            <h2 id="activeGameTitle" class="font-black text-lg text-white leading-tight">Coup (โค่นอำนาจ)</h2>
+            <p id="turnAnnouncement" class="text-xs font-semibold text-amber-400">รอบของ: กำลังรอ...</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="hostSkipTurn()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition" title="ข้ามเทิร์นผู้เล่นที่นิ่ง">
+            ⏭️ ข้ามเทิร์น
+          </button>
+          <button onclick="hostReturnToLobbyConfirm()" class="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-semibold border border-rose-800/60 transition">
+            🏠 กลับล็อบบี้
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
+        <div class="lg:col-span-3 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between relative overflow-hidden card-shadow min-h-[380px]">
+          <!-- Challenge Banner Alert -->
+          <div id="challengeBanner" class="hidden absolute inset-0 z-20 bg-rose-950/90 backdrop-blur flex flex-col items-center justify-center p-6 text-center siren-active">
+            <span class="text-5xl animate-bounce mb-2">🚨</span>
+            <h3 id="challengeBannerTitle" class="text-3xl font-black text-white mb-2">มีการท้าทาย (CHALLENGE!)</h3>
+            <p id="challengeBannerDesc" class="text-slate-200 text-sm max-w-md mb-5"></p>
+            <div id="challengeBannerButtons" class="flex flex-wrap gap-3 justify-center"></div>
+          </div>
+
+          <div id="gameBoardContainer" class="flex-1 flex flex-col items-center justify-center w-full"></div>
+
+          <div class="mt-4 pt-4 border-t border-slate-800/80">
+            <h4 class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2">สถานะผู้เล่นทุกคนในโต๊ะ</h4>
+            <div id="publicPlayersRow" class="flex flex-wrap items-center gap-3"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col card-shadow">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <span>📜</span> บันทึกการเล่น (Game Log)
+            </h3>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          </div>
+          <div id="gameLogList" class="flex-1 space-y-2 overflow-y-auto max-h-[420px] custom-scrollbar text-xs pr-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: CLIENT MOBILE CONTROLLER ================= -->
+    <section id="clientGameView" class="hidden flex-1 flex flex-col gap-3 max-w-lg mx-auto w-full">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs card-shadow">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+            👤
+          </div>
+          <div>
+            <div class="font-bold text-white text-sm" id="clientPlayerNameDisplay">คุณ</div>
+            <div class="text-[11px] text-slate-400">ห้อง: <span id="clientRoomDisplay" class="font-mono text-amber-400 font-bold">----</span></div>
+          </div>
+        </div>
+        <div id="clientStatusBadge" class="px-3 py-1.5 rounded-lg bg-slate-800 font-semibold text-amber-400 border border-slate-700">
+          รอเริ่มเกม...
+        </div>
+      </div>
+
+      <!-- Secret View Modal (Cabo Peek) -->
+      <div id="privateSecretModal" class="hidden p-4 rounded-xl bg-gradient-to-r from-purple-900/90 to-indigo-900/90 border-2 border-purple-400 text-center shadow-2xl">
+        <span class="text-xs font-semibold text-purple-200 uppercase tracking-widest block mb-1">ผลการดูไพ่ลับ (เห็นเฉพาะคุณ)</span>
+        <div id="privateSecretContent" class="text-lg font-black text-white my-2"></div>
+        <button onclick="dismissSecretModal()" class="px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition">
+          ปิดหน้าต่างนี้
+        </button>
+      </div>
+
+      <!-- Private Cards Hand -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex-1 flex flex-col card-shadow">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+            <span>🃏</span> ไพ่ในมือของคุณ (เฉพาะคุณที่เห็น)
+          </h3>
+          <span class="text-[11px] text-emerald-400 font-medium">🔒 ข้อมูลลับ</span>
+        </div>
+        <div id="clientHandSlot" class="flex-1 flex flex-wrap items-center justify-center gap-3 py-2 min-h-[140px]"></div>
+        <div id="clientTurnAlert" class="mt-2 text-center py-2 px-3 rounded-xl bg-slate-800/80 text-xs font-semibold text-slate-300">
+          กำลังรอเริ่มเกม...
+        </div>
+      </div>
+
+      <!-- Action Panel & Quick Reactions -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 space-y-2 card-shadow">
+        <div id="reactionButtonsRow" class="grid grid-cols-2 gap-2"></div>
+        <div id="clientActionButtonsRow" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TARGET SELECTION MODAL (Coup / Cabo) -->
+  <div id="targetModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-500 rounded-2xl p-5 max-w-sm w-full card-shadow text-center">
+      <h3 id="targetModalTitle" class="text-lg font-bold text-white mb-2">เลือกเป้าหมาย</h3>
+      <p id="targetModalDesc" class="text-xs text-slate-400 mb-4">กรุณาเลือกผู้เล่นที่ต้องการใช้คำสั่งนี้</p>
+      <div id="targetPlayersList" class="space-y-2 mb-4"></div>
+      <button onclick="closeTargetModal()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">
+        ยกเลิก
+      </button>
+    </div>
+  </div>
+
+  <!-- UNO COLOR PICKER MODAL -->
+  <div id="unoColorModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-purple-500 rounded-2xl p-5 max-w-sm w-full card-shadow text-center">
+      <h3 class="text-lg font-bold text-white mb-2">เลือกสีที่ต้องการเปลี่ยน</h3>
+      <div class="grid grid-cols-2 gap-3 my-4">
+        <button onclick="chooseUnoColor('red')" class="py-4 rounded-xl bg-red-600 hover:bg-red-500 font-bold text-white shadow-lg shadow-red-600/30">สีแดง</button>
+        <button onclick="chooseUnoColor('blue')" class="py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-white shadow-lg shadow-blue-600/30">สีน้ำเงิน</button>
+        <button onclick="chooseUnoColor('green')" class="py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white shadow-lg shadow-emerald-600/30">สีเขียว</button>
+        <button onclick="chooseUnoColor('yellow')" class="py-4 rounded-xl bg-amber-400 hover:bg-amber-300 font-bold text-slate-950 shadow-lg shadow-amber-400/30">สีเหลือง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VICTORY MODAL OVERLAY -->
+  <div id="victoryOverlay" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center card-shadow">
+      <span class="text-6xl animate-bounce inline-block mb-3">🏆</span>
+      <h3 class="text-3xl font-black text-white mb-1">จบเกมแล้ว!</h3>
+      <div id="winnerNameDisplay" class="text-2xl font-black text-amber-400 my-3"></div>
+      <p id="winnerStatsDesc" class="text-xs text-slate-300 mb-6"></p>
+      
+      <div class="flex gap-3 justify-center">
+        <button onclick="rematchGame()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 font-bold text-sm text-white transition shadow-lg shadow-emerald-500/30">
+          เล่นอีกรอบ
+        </button>
+        <button onclick="exitToHub()" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-sm text-slate-300 transition border border-slate-700">
+          กลับสู่ Hub
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIO CONTEXT & SFX SYNTHESIZER -->
+  <script>
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundText').textContent = soundEnabled ? 'เปิดเสียง' : 'ปิดเสียง';
+      if (soundEnabled) initAudio();
+    }
+
+    function playClickSound() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.06);
+      } catch(e) {}
+    }
+
+    function playCardSound() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const bufferSize = audioCtx.sampleRate * 0.08;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        filter.Q.setValueAtTime(3, audioCtx.currentTime);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start();
+      } catch(e) {}
+    }
+
+    function playChallengeAlert() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(i % 2 === 0 ? 800 : 500, now + (i * 0.15));
+          gain.gain.setValueAtTime(0.25, now + (i * 0.15));
+          gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.15) + 0.14);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + (i * 0.15));
+          osc.stop(now + (i * 0.15) + 0.15);
+        }
+      } catch(e) {}
+    }
+
+    function playUnoChime() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (idx * 0.07));
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + (idx * 0.07));
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (idx * 0.07) + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + (idx * 0.07));
+          osc.stop(audioCtx.currentTime + (idx * 0.07) + 0.25);
+        });
+      } catch(e) {}
+    }
+
+    function playCaboCallSound() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.2);
+      } catch(e) {}
+    }
+
+    function playVictorySound() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const fanfare = [523.25, 523.25, 523.25, 659.25, 783.99];
+        const times = [0, 0.12, 0.24, 0.36, 0.55];
+        const durations = [0.1, 0.1, 0.1, 0.15, 0.6];
+        fanfare.forEach((f, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, audioCtx.currentTime + times[i]);
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime + times[i]);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + times[i] + durations[i]);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + times[i]);
+          osc.stop(audioCtx.currentTime + times[i] + durations[i]);
+        });
+      } catch(e) {}
+    }
+
+    function playErrorSound() {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(120, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch(e) {}
+    }
+  </script>
+
+  <!-- APPLICATION NETWORKING & GAME ENGINE SCRIPT -->
+  <script>
+    let peer = null;
+    let isHost = false;
+    let myRoomCode = '';
+    let myPlayerId = '';
+    let myPlayerName = '';
+    let connections = {}; // playerId -> dataConnection
+    let hostConn = null;  // dataConnection to host
+    let localBroadcast = null; // BroadcastChannel for same-device fallback
+    let players = [];
+    let selectedGame = 'coup';
+    let currentGameState = null;
+    let pendingTargetCallback = null;
+    let pendingWildCardIndex = null;
+
+    // STUN Servers for robust NAT traversal
+    const PEER_CONFIG = {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' }
+        ]
+      }
+    };
+
+    const PEER_PREFIX = 'thai-party-hub-';
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          document.getElementById('wakeLockBadge').classList.remove('hidden');
+          wakeLock.addEventListener('release', () => {
+            document.getElementById('wakeLockBadge').classList.add('hidden');
+          });
+        }
+      } catch (err) {
+        console.warn('Wake Lock notice:', err);
+      }
+    }
+
+    const GAME_RULES = {
+      coup: {
+        title: "Coup (โค่นอำนาจ)",
+        desc: "เกมบลัฟและชิงอำนาจ แต่ละคนเริ่มต้นด้วยไพ่ลับ 2 ใบ และ 2 เหรียญ เป้าหมายคือกำจัดไพ่ลับของผู้เล่นคนอื่นให้หมด ใครเหลือไพ่เป็นคนสุดท้ายชนะ!",
+        points: [
+          "• ทุกเทิร์นทำได้ 1 แอ็กชัน: เก็บ 1 เหรียญ, ขอเงินช่วยเหลือ 2 เหรียญ (ดยุกบล็อกได้), หรือจ่าย 7 เหรียญทำรัฐประหาร (บล็อกไม่ได้)",
+          "• สามารถอ้างบทบาทใดก็ได้ (ดยุก, มือสังหาร, กัปตัน, ทูต, คอนเทสซา) แม้จะไม่มีการ์ดนั้นอยู่จริง",
+          "• คนอื่นสามารถจับโกหก (ท้าทาย) หรือบล็อกได้ ถ้าท้าทายแล้วจับได้ คนโกหกต้องทิ้งการ์ด 1 ใบ แต่ถ้าคนถูกท้าทายมีจริง คนท้าทายจะเสียการ์ดแทน"
+        ]
+      },
+      cabo: {
+        title: "Cabo (คาโบ)",
+        desc: "ตามหาการ์ดยูนิคอร์นและทำคะแนนรวมของการ์ดลับ 4 ใบให้น้อยที่สุด เมื่อคิดว่าคะแนนตัวเองต่ำสุดให้ตะโกนเรียก 'CABO!'",
+        points: [
+          "• ผู้เล่นเริ่มด้วยการ์ดคว่ำ 4 ใบ และแอบดูได้เพียง 2 ใบแรกในตอนเริ่มเกม",
+          "• จั่วไพ่จากกองกลางหรือกองทิ้ง สลับกับการ์ดของตัวเอง หรือใช้สกิล (แต้ม 7-8 ดูไพ่ตัวเอง, 9-10 ดูไพ่คนอื่น, 11-12 สลับไพ่)",
+          "• ถ้าใครเรียก CABO ผู้เล่นทุกคนจะได้เล่นอีก 1 เทิร์นสุดท้าย แล้วหงายการ์ดนับแต้ม ใครแต้มน้อยสุดชนะ!"
+        ]
+      },
+      uno: {
+        title: "Uno (อูโน่)",
+        desc: "การ์ดเกมยอดฮิตตลอดกาล ลงการ์ดให้ตรงสีหรือตัวเลข และใช้การ์ดฟังก์ชันแกล้งเพื่อน",
+        points: [
+          "• ผู้เล่นเริ่มด้วยไพ่ 7 ใบ ลงไพ่ที่ตรงกับสีหรือตัวเลขของใบล่าสุดในกองทิ้ง",
+          "• การ์ดพิเศษ: ข้ามเทิร์น (Skip), ย้อนกลับ (Reverse), +2 (Draw Two), เปลี่ยนสี (Wild), +4 (Wild Draw 4)",
+          "• เมื่อเหลือไพ่ 1 ใบต้องกดปุ่ม UNO! ทันที หากลืมและเพื่อนกดดักจับ จะต้องถูกปรับจั่ว 2 ใบ"
+        ]
+      }
+    };
+
+    function selectGame(gameKey) {
+      selectedGame = gameKey;
+      playClickSound();
+      ['coup', 'cabo', 'uno'].forEach(key => {
+        const card = document.getElementById(`gameCard-${key}`);
+        const check = card.querySelector('.selected-check');
+        if (key === gameKey) {
+          card.classList.remove('border-slate-800');
+          card.classList.add('border-amber-500');
+          check.classList.remove('hidden');
+        } else {
+          card.classList.remove('border-amber-500');
+          card.classList.add('border-slate-800');
+          check.classList.add('hidden');
+        }
+      });
+      renderRulesPreview();
+    }
+
+    function renderRulesPreview() {
+      const data = GAME_RULES[selectedGame];
+      const container = document.getElementById('selectedGameRules');
+      container.innerHTML = `
+        <div class="font-bold text-white text-sm mb-1">${data.title} - สรุปกติกา</div>
+        <p class="text-slate-400 mb-2">${data.desc}</p>
+        <div class="space-y-1">
+          ${data.points.map(p => `<div>${p}</div>`).join('')}
+        </div>
+      `;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderRulesPreview();
+      const hash = window.location.hash;
+      if (hash && hash.includes('room=')) {
+        const code = hash.split('room=')[1].slice(0, 4).toUpperCase();
+        document.getElementById('joinCodeInput').value = code;
+        // Highlight join card if joined via direct link
+        document.getElementById('joinCardContainer').classList.add('ring-2', 'ring-purple-500');
+        document.getElementById('joinNameInput').focus();
+      }
+    });
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+      let code = '';
+      for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      return code;
+    }
+
+    // ================= HOST SETUP =================
+    function setupAsHost() {
+      initAudio();
+      playClickSound();
+      isHost = true;
+      myRoomCode = generateRoomCode();
+      myPlayerId = 'host_' + Math.random().toString(36).substr(2, 6);
+      myPlayerName = 'จอกลาง (Host)';
+
+      document.getElementById('roleBadge').textContent = 'โหมด: จอกลาง (Host Screen)';
+      document.getElementById('roleSelectView').classList.add('hidden');
+      document.getElementById('hostLobbyView').classList.remove('hidden');
+      document.getElementById('hostRoomCodeDisplay').textContent = myRoomCode;
+
+      // BroadcastChannel setup for instant same-browser fallback
+      if ('BroadcastChannel' in window) {
+        try {
+          localBroadcast = new BroadcastChannel('party_room_' + myRoomCode);
+          localBroadcast.onmessage = (e) => {
+            handleHostIncomingMessage(e.data);
+          };
+        } catch(e) {}
+      }
+
+      initHostPeer();
+    }
+
+    function initHostPeer() {
+      if (peer) {
+        try { peer.destroy(); } catch(e) {}
+      }
+
+      const peerId = PEER_PREFIX + myRoomCode;
+      peer = new Peer(peerId, PEER_CONFIG);
+
+      peer.on('open', (id) => {
+        console.log('Host Peer open:', id);
+        document.getElementById('qrLoading').classList.add('hidden');
+        const netBadge = document.getElementById('hostNetworkStatus');
+        netBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-medium border border-emerald-500/30';
+        netBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>ห้องพร้อมเชื่อมต่อ</span>';
+        generateQRCode();
+      });
+
+      peer.on('connection', (conn) => {
+        console.log('Incoming connection from:', conn.peer);
+        conn.on('open', () => {
+          console.log('Connection dataChannel opened with:', conn.peer);
+        });
+        conn.on('data', (data) => {
+          handleHostIncomingData(conn, data);
+        });
+        conn.on('close', () => {
+          handlePlayerDisconnect(conn.peer);
+        });
+        conn.on('error', (err) => {
+          console.warn('Connection error:', err);
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error('Host peer error:', err);
+        if (err.type === 'unavailable-id') {
+          myRoomCode = generateRoomCode();
+          document.getElementById('hostRoomCodeDisplay').textContent = myRoomCode;
+          initHostPeer();
+        }
+      });
+    }
+
+    function generateQRCode() {
+      const qrBox = document.getElementById('qrcodeBox');
+      qrBox.innerHTML = '';
+      const joinUrl = `${window.location.origin}${window.location.pathname}#room=${myRoomCode}`;
+      new QRCode(qrBox, {
+        text: joinUrl,
+        width: 110,
+        height: 110,
+        colorDark : "#0f172a",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+    }
+
+    function copyRoomLink() {
+      const joinUrl = `${window.location.origin}${window.location.pathname}#room=${myRoomCode}`;
+      navigator.clipboard.writeText(joinUrl).then(() => {
+        alert('คัดลอกลิงก์ส่งให้เพื่อนแล้ว: ' + joinUrl);
+      }).catch(() => {
+        prompt('คัดลอกลิงก์ด้านล่างนี้เพื่อส่งให้เพื่อน:', joinUrl);
+      });
+    }
+
+    // ================= CLIENT JOIN =================
+    function joinRoomFromInput() {
+      initAudio();
+      playClickSound();
+      const name = document.getElementById('joinNameInput').value.trim();
+      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+
+      if (!name) return alert('กรุณาใส่ชื่อเล่นของคุณก่อนเข้าห้อง');
+      if (!code || code.length !== 4) return alert('กรุณาใส่รหัสห้อง 4 หลักที่ถูกต้อง');
+
+      myPlayerName = name;
+      myRoomCode = code;
+      myPlayerId = 'p_' + Math.random().toString(36).substr(2, 6);
+      isHost = false;
+
+      // Visual feedback
+      const joinBtn = document.getElementById('joinRoomBtn');
+      const btnText = document.getElementById('joinBtnText');
+      const spinner = document.getElementById('joinSpinner');
+      const statusMsg = document.getElementById('joinStatusMessage');
+
+      joinBtn.disabled = true;
+      btnText.textContent = 'กำลังเชื่อมต่อ...';
+      spinner.classList.remove('hidden');
+      statusMsg.textContent = 'กำลังเชื่อมต่อกับจอกลาง...';
+
+      let connectionHandled = false;
+
+      // Timeout watchdog
+      const timeoutTimer = setTimeout(() => {
+        if (!connectionHandled) {
+          joinBtn.disabled = false;
+          btnText.textContent = 'เข้าร่วมห้อง';
+          spinner.classList.add('hidden');
+          statusMsg.textContent = '⚠️ เชื่อมต่อไม่สำเร็จ กรุณาตรวจเช็กว่าจอกลางเปิดห้องรหัส ' + myRoomCode + ' อยู่';
+        }
+      }, 10000);
+
+      // Try BroadcastChannel fallback first (if in same browser)
+      if ('BroadcastChannel' in window) {
+        try {
+          localBroadcast = new BroadcastChannel('party_room_' + myRoomCode);
+          localBroadcast.onmessage = (e) => {
+            const data = e.data;
+            if (data.type === 'JOIN_ACK' && data.playerId === myPlayerId) {
+              connectionHandled = true;
+              clearTimeout(timeoutTimer);
+              activateClientView();
+            } else {
+              handleClientIncomingData(data);
+            }
+          };
+          // Emit join intent via BroadcastChannel
+          localBroadcast.postMessage({
+            type: 'JOIN',
+            playerId: myPlayerId,
+            name: myPlayerName,
+            isLocal: true
+          });
+        } catch(e) {}
+      }
+
+      // Initialize WebRTC Client Peer
+      if (peer) {
+        try { peer.destroy(); } catch(e) {}
+      }
+
+      peer = new Peer(null, PEER_CONFIG);
+
+      peer.on('open', (id) => {
+        statusMsg.textContent = 'พบสัญญาณเครือข่าย กำลังเชื่อมต่อไปยังห้อง ' + myRoomCode + '...';
+        const hostPeerId = PEER_PREFIX + myRoomCode;
+
+        // Note: Do NOT use reliable:true (known PeerJS 1.5 bug)
+        hostConn = peer.connect(hostPeerId);
+
+        hostConn.on('open', () => {
+          console.log('Client connected to Host via WebRTC!');
+          connectionHandled = true;
+          clearTimeout(timeoutTimer);
+          requestWakeLock();
+
+          hostConn.send({
+            type: 'JOIN',
+            playerId: myPlayerId,
+            name: myPlayerName
+          });
+
+          activateClientView();
+        });
+
+        hostConn.on('data', (data) => {
+          handleClientIncomingData(data);
+        });
+
+        hostConn.on('close', () => {
+          console.warn('Host connection closed');
+        });
+
+        hostConn.on('error', (err) => {
+          console.error('Data connection error:', err);
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer join error:', err);
+        if (!connectionHandled) {
+          clearTimeout(timeoutTimer);
+          joinBtn.disabled = false;
+          btnText.textContent = 'เข้าร่วมห้อง';
+          spinner.classList.add('hidden');
+          if (err.type === 'peer-unavailable') {
+            statusMsg.textContent = '❌ ไม่พบห้องรหัส ' + myRoomCode + ' กรุณาให้จอกลางเปิดห้องก่อน';
+          } else {
+            statusMsg.textContent = '❌ การเชื่อมต่อขัดข้อง: ' + (err.type || 'network error');
+          }
+        }
+      });
+    }
+
+    function activateClientView() {
+      document.getElementById('roleBadge').textContent = `ผู้เล่น: ${myPlayerName}`;
+      document.getElementById('roleSelectView').classList.add('hidden');
+      document.getElementById('clientGameView').classList.remove('hidden');
+      document.getElementById('clientPlayerNameDisplay').textContent = myPlayerName;
+      document.getElementById('clientRoomDisplay').textContent = myRoomCode;
+    }
+
+    // ================= HOST INCOMING & BROADCAST =================
+    function handleHostIncomingData(conn, data) {
+      handleHostIncomingMessage(data, conn);
+    }
+
+    function handleHostIncomingMessage(data, conn = null) {
+      console.log('Host received action:', data);
+
+      if (data.type === 'JOIN') {
+        const existing = players.find(p => p.id === data.playerId);
+        if (!existing) {
+          players.push({
+            id: data.playerId,
+            peerId: conn ? conn.peer : 'local',
+            name: data.name,
+            isAlive: true,
+            coins: 2,
+            handCount: 0,
+            score: 0
+          });
+          if (conn) connections[data.playerId] = conn;
+          logAction(`ผู้เล่น [${data.name}] เข้าร่วมห้องแล้ว`);
+          playCardSound();
+        } else {
+          existing.peerId = conn ? conn.peer : 'local';
+          if (conn) connections[data.playerId] = conn;
+          logAction(`ผู้เล่น [${data.name}] เชื่อมต่อใหม่อีกครั้ง`);
+        }
+
+        // Send ACK back
+        const ack = { type: 'JOIN_ACK', playerId: data.playerId, success: true };
+        if (conn && conn.open) {
+          try { conn.send(ack); } catch(e) {}
+        }
+        if (localBroadcast) {
+          try { localBroadcast.postMessage(ack); } catch(e) {}
+        }
+
+        updateHostLobbyUI();
+        broadcastLobbyState();
+      }
+      else if (data.type === 'GAME_ACTION') {
+        processGameAction(data.playerId, data.action, data.payload);
+      }
+    }
+
+    function handlePlayerDisconnect(peerId) {
+      const p = players.find(x => x.peerId === peerId);
+      if (p) {
+        logAction(`⚠️ ผู้เล่น [${p.name}] สัญญาณหลุดชั่วคราว`);
+        updateHostLobbyUI();
+      }
+    }
+
+    function updateHostLobbyUI() {
+      document.getElementById('playerCountBadge').textContent = players.length;
+      const list = document.getElementById('hostPlayerList');
+      if (players.length === 0) {
+        list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">ยังไม่มีผู้เล่นเข้ามา สแกน QR Code เพื่อเข้าห้อง</div>`;
+        document.getElementById('startGameBtn').disabled = true;
+        return;
+      }
+
+      list.innerHTML = players.map((p, idx) => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-amber-400 text-[10px]">
+              ${idx + 1}
+            </span>
+            <span class="font-bold text-white">${p.name}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold">พร้อม</span>
+            <button onclick="hostKickPlayer('${p.id}')" class="text-slate-500 hover:text-rose-400 font-bold p-1" title="เตะออก">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('startGameBtn').disabled = players.length < 2;
+    }
+
+    function hostKickPlayer(id) {
+      const idx = players.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        const name = players[idx].name;
+        if (connections[id]) {
+          try { connections[id].close(); } catch(e) {}
+          delete connections[id];
+        }
+        players.splice(idx, 1);
+        logAction(`Host เตะผู้เล่น [${name}] ออกจากห้อง`);
+        updateHostLobbyUI();
+        broadcastLobbyState();
+      }
+    }
+
+    function broadcastLobbyState() {
+      const payload = {
+        type: 'LOBBY_UPDATE',
+        players: players.map(p => ({ id: p.id, name: p.name })),
+        selectedGame: selectedGame
+      };
+      sendToAllClients(payload);
+    }
+
+    function sendToAllClients(payload) {
+      Object.values(connections).forEach(c => {
+        if (c && c.open) {
+          try { c.send(payload); } catch(e) {}
+        }
+      });
+      if (localBroadcast) {
+        try { localBroadcast.postMessage(payload); } catch(e) {}
+      }
+    }
+
+    function logAction(msg) {
+      const logList = document.getElementById('gameLogList');
+      const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      const item = document.createElement('div');
+      item.className = 'p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[11px] leading-snug';
+      item.innerHTML = `<span class="text-slate-500 font-mono">[${time}]</span> <span class="text-slate-200">${msg}</span>`;
+      logList.prepend(item);
+    }
+
+    // ================= CLIENT INCOMING DATA =================
+    function handleClientIncomingData(data) {
+      console.log('Client received:', data);
+      if (data.type === 'LOBBY_UPDATE') {
+        document.getElementById('clientStatusBadge').textContent = `รอเริ่ม (${data.players.length} คนในห้อง)`;
+      }
+      else if (data.type === 'GAME_START') {
+        playUnoChime();
+        document.getElementById('clientStatusBadge').textContent = 'เกมกำลังดำเนินอยู่';
+      }
+      else if (data.type === 'PRIVATE_STATE') {
+        renderClientHand(data.hand, data.game);
+        renderClientActions(data.game, data.isMyTurn, data.hand, data.gameState);
+      }
+      else if (data.type === 'SECRET_REVEAL') {
+        const modal = document.getElementById('privateSecretModal');
+        document.getElementById('privateSecretContent').innerHTML = data.content;
+        modal.classList.remove('hidden');
+        playCardSound();
+      }
+      else if (data.type === 'VICTORY') {
+        triggerVictory(data.winnerName, data.desc);
+      }
+    }
+
+    function dismissSecretModal() {
+      document.getElementById('privateSecretModal').classList.add('hidden');
+    }
+
+    // ================= HOST GAME START & ENGINES =================
+    function hostStartSelectedGame() {
+      if (players.length < 2) return;
+      playClickSound();
+
+      document.getElementById('hostLobbyView').classList.add('hidden');
+      document.getElementById('hostGameView').classList.remove('hidden');
+
+      const icons = { coup: '👑', cabo: '🦄', uno: '🌈' };
+      const titles = { coup: 'Coup (โค่นอำนาจ)', cabo: 'Cabo (คาโบ)', uno: 'Uno (อูโน่)' };
+      document.getElementById('activeGameIcon').textContent = icons[selectedGame];
+      document.getElementById('activeGameTitle').textContent = titles[selectedGame];
+
+      if (selectedGame === 'coup') initCoupGame();
+      if (selectedGame === 'cabo') initCaboGame();
+      if (selectedGame === 'uno') initUnoGame();
+
+      sendToAllClients({ type: 'GAME_START', game: selectedGame });
+      broadcastGameState();
+    }
+
+    // COUP ENGINE
+    const COUP_ROLES = ['Duke', 'Assassin', 'Captain', 'Ambassador', 'Contessa'];
+    const COUP_ROLE_TH = {
+      Duke: 'ดยุก (Duke)',
+      Assassin: 'มือสังหาร (Assassin)',
+      Captain: 'กัปตัน (Captain)',
+      Ambassador: 'ทูต (Ambassador)',
+      Contessa: 'คอนเทสซา (Contessa)'
+    };
+
+    function initCoupGame() {
+      let deck = [];
+      COUP_ROLES.forEach(r => deck.push(r, r, r));
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+
+      const hands = {};
+      players.forEach(p => {
+        p.isAlive = true;
+        p.coins = 2;
+        hands[p.id] = [
+          { role: deck.pop(), revealed: false },
+          { role: deck.pop(), revealed: false }
+        ];
+        p.handCount = 2;
+      });
+
+      currentGameState = {
+        game: 'coup',
+        deck: deck,
+        hands: hands,
+        turnIndex: 0,
+        pendingAction: null
+      };
+
+      logAction('⚔️ เริ่มเกม Coup ผู้เล่นทุกคนได้รับ 2 เหรียญและการ์ดลับ 2 ใบ');
+    }
+
+    // CABO ENGINE
+    function initCaboGame() {
+      let deck = [0, 0];
+      for (let v = 1; v <= 12; v++) deck.push(v, v, v, v);
+      deck.push(13, 13);
+
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+
+      const hands = {};
+      players.forEach(p => {
+        hands[p.id] = [
+          { val: deck.pop(), known: false },
+          { val: deck.pop(), known: false },
+          { val: deck.pop(), known: false },
+          { val: deck.pop(), known: false }
+        ];
+        p.score = 0;
+        p.handCount = 4;
+        p.isAlive = true;
+      });
+
+      const discardPile = [deck.pop()];
+
+      currentGameState = {
+        game: 'cabo',
+        deck: deck,
+        discardPile: discardPile,
+        hands: hands,
+        turnIndex: 0,
+        caboCallerId: null,
+        finalTurnsLeft: null
+      };
+
+      logAction('🦄 เริ่มเกม Cabo แจกการ์ดคว่ำ 4 ใบให้ทุกคน');
+      logAction('💡 ผู้เล่นทุกคนสามารถกดปุ่ม "ดูไพ่ 2 ใบแรก" บนมือถือของตัวเองได้ทันที');
+    }
+
+    // UNO ENGINE
+    const UNO_COLORS = ['red', 'blue', 'green', 'yellow'];
+    const UNO_COLOR_TH = { red: 'แดง', blue: 'น้ำเงิน', green: 'เขียว', yellow: 'เหลือง' };
+
+    function initUnoGame() {
+      let deck = [];
+      UNO_COLORS.forEach(c => {
+        deck.push({ color: c, value: '0' });
+        for (let i = 1; i <= 9; i++) deck.push({ color: c, value: i.toString() }, { color: c, value: i.toString() });
+        deck.push({ color: c, value: 'Skip' }, { color: c, value: 'Skip' });
+        deck.push({ color: c, value: 'Reverse' }, { color: c, value: 'Reverse' });
+        deck.push({ color: c, value: '+2' }, { color: c, value: '+2' });
+      });
+      for (let i = 0; i < 4; i++) {
+        deck.push({ color: 'wild', value: 'Wild' });
+        deck.push({ color: 'wild', value: '+4' });
+      }
+
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+
+      const hands = {};
+      players.forEach(p => {
+        hands[p.id] = [];
+        for (let i = 0; i < 7; i++) hands[p.id].push(deck.pop());
+        p.handCount = 7;
+        p.calledUno = false;
+        p.isAlive = true;
+      });
+
+      let top = deck.pop();
+      while (top.color === 'wild') {
+        deck.unshift(top);
+        top = deck.pop();
+      }
+      const discardPile = [top];
+
+      currentGameState = {
+        game: 'uno',
+        deck: deck,
+        discardPile: discardPile,
+        hands: hands,
+        turnIndex: 0,
+        direction: 1,
+        activeColor: top.color
+      };
+
+      logAction(`🌈 เริ่มเกม Uno การ์ดเปิดใบบนสุดคือ [สี${UNO_COLOR_TH[top.color]} เลข ${top.value}]`);
+    }
+
+    // ================= BROADCAST GAME STATE =================
+    function broadcastGameState() {
+      if (!currentGameState) return;
+
+      const activePlayer = players[currentGameState.turnIndex];
+      document.getElementById('turnAnnouncement').textContent = `รอบของ: ${activePlayer ? activePlayer.name : '-'}`;
+
+      renderHostGameBoard();
+      renderPublicPlayersRow();
+
+      players.forEach(p => {
+        const privateHand = currentGameState.hands ? currentGameState.hands[p.id] : [];
+        const payload = {
+          type: 'PRIVATE_STATE',
+          game: currentGameState.game,
+          isMyTurn: activePlayer && activePlayer.id === p.id,
+          hand: privateHand,
+          gameState: {
+            activePlayerName: activePlayer ? activePlayer.name : '',
+            caboCaller: currentGameState.caboCallerId,
+            topDiscard: currentGameState.discardPile ? currentGameState.discardPile[currentGameState.discardPile.length - 1] : null,
+            activeColor: currentGameState.activeColor,
+            coins: p.coins,
+            players: players.map(x => ({ id: x.id, name: x.name, handCount: x.handCount, coins: x.coins, isAlive: x.isAlive }))
+          }
+        };
+
+        const conn = connections[p.id];
+        if (conn && conn.open) {
+          try { conn.send(payload); } catch(e) {}
+        }
+        if (localBroadcast) {
+          try { localBroadcast.postMessage({ ...payload, targetPlayerId: p.id }); } catch(e) {}
+        }
+      });
+    }
+
+    function renderHostGameBoard() {
+      const container = document.getElementById('gameBoardContainer');
+      const state = currentGameState;
+
+      if (state.game === 'coup') {
+        const act = state.pendingAction;
+        container.innerHTML = `
+          <div class="flex flex-col items-center text-center">
+            <div class="text-6xl mb-3 animate-pulse">👑</div>
+            <div class="text-xl font-black text-white mb-2">บัลลังก์แห่งการโค่นอำนาจ</div>
+            ${act ? `
+              <div class="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500 max-w-md">
+                <div class="text-amber-400 font-bold text-sm uppercase">แอ็กชันที่กำลังประกาศ:</div>
+                <div class="text-lg font-black text-white my-1">${act.desc}</div>
+                <div class="text-xs text-slate-400">ผู้เล่นสามารถคุยข้ามโต๊ะ หรือกดท้าทายบนมือถือได้ทันที</div>
+                <button onclick="hostConfirmCoupActionSuccess()" class="mt-3 px-5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30">
+                  ✓ ไม่มีใครคัดค้าน (ดำเนินการต่อ)
+                </button>
+              </div>
+            ` : `
+              <p class="text-slate-400 text-sm max-w-md">
+                รอผู้เล่นประจำเทิร์นเลือกทำแอ็กชันบนหน้าจอมือถือ (เก็บเหรียญ, ขอเงินช่วยเหลือ, อ้างบทบาท หรือทำรัฐประหาร)
+              </p>
+            `}
+          </div>
+        `;
+      }
+      else if (state.game === 'cabo') {
+        const top = state.discardPile[state.discardPile.length - 1];
+        container.innerHTML = `
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-8 text-center">
+            <div class="flex flex-col items-center">
+              <div class="w-24 h-36 rounded-2xl bg-gradient-to-br from-indigo-800 to-purple-900 border-2 border-purple-500/60 flex flex-col items-center justify-center card-shadow font-bold text-white">
+                <span class="text-2xl mb-1">🎴</span>
+                <span class="text-xs text-purple-200">กองจั่ว</span>
+                <span class="text-xs text-slate-400 mt-1">${state.deck.length} ใบ</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-center">
+              <div class="w-24 h-36 rounded-2xl bg-slate-800 border-2 border-slate-600 flex flex-col items-center justify-center card-shadow font-black text-3xl text-amber-400">
+                <span>${top !== undefined ? top : '-'}</span>
+                <span class="text-[10px] font-normal text-slate-400 mt-1">กองทิ้งใบบนสุด</span>
+              </div>
+            </div>
+            ${state.caboCallerId ? `
+              <div class="px-6 py-4 rounded-2xl bg-purple-950 border-2 border-purple-400 text-center animate-pulse">
+                <div class="text-2xl font-black text-amber-400">📢 CABO!</div>
+                <div class="text-xs text-purple-200 mt-1">เข้าสู่รอบสุดท้ายของทุกคน!</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+      else if (state.game === 'uno') {
+        const top = state.discardPile[state.discardPile.length - 1];
+        const colorBg = {
+          red: 'from-rose-600 to-red-700 border-rose-400 text-white',
+          blue: 'from-blue-600 to-indigo-700 border-blue-400 text-white',
+          green: 'from-emerald-600 to-teal-700 border-emerald-400 text-white',
+          yellow: 'from-amber-400 to-yellow-500 border-amber-300 text-slate-950',
+          wild: 'from-purple-600 to-pink-600 border-purple-400 text-white'
+        }[top.color] || 'from-slate-700 to-slate-800 border-slate-500 text-white';
+
+        container.innerHTML = `
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-8 text-center">
+            <div class="flex flex-col items-center">
+              <div class="w-28 h-40 rounded-2xl bg-slate-900 border-2 border-slate-700 flex flex-col items-center justify-center card-shadow">
+                <span class="text-3xl font-black text-rose-500">UNO</span>
+                <span class="text-xs text-slate-400 mt-1">${state.deck.length} ใบ</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-center">
+              <div class="w-28 h-40 rounded-2xl bg-gradient-to-br ${colorBg} border-4 flex flex-col items-center justify-center card-shadow font-black text-4xl">
+                <span>${top.value}</span>
+                <span class="text-[11px] font-bold mt-2 uppercase tracking-wider">${UNO_COLOR_TH[state.activeColor] || top.color}</span>
+              </div>
+              <span class="text-xs text-slate-400 mt-2">สีปัจจุบัน: <b class="text-amber-400">${UNO_COLOR_TH[state.activeColor] || state.activeColor}</b></span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function renderPublicPlayersRow() {
+      const row = document.getElementById('publicPlayersRow');
+      const activeIdx = currentGameState ? currentGameState.turnIndex : -1;
+
+      row.innerHTML = players.map((p, idx) => {
+        const isTurn = idx === activeIdx;
+        let details = '';
+        if (currentGameState.game === 'coup') details = `🪙 ${p.coins} เหรียญ • ไพ่ ${p.handCount} ใบ`;
+        else if (currentGameState.game === 'cabo') details = `ไพ่คว่ำ ${p.handCount} ใบ`;
+        else if (currentGameState.game === 'uno') details = `ไพ่บนมือ ${p.handCount} ใบ`;
+
+        return `
+          <div class="px-3.5 py-2 rounded-xl border transition ${isTurn ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/40' : 'bg-slate-950/70 border-slate-800'} ${!p.isAlive ? 'opacity-40 grayscale' : ''}">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full ${isTurn ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}"></span>
+              <span class="font-bold text-xs text-white">${p.name} ${!p.isAlive ? '(ตาย)' : ''}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">${details}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================= CLIENT HAND & ACTIONS =================
+    function renderClientHand(hand, game) {
+      const slot = document.getElementById('clientHandSlot');
+      slot.innerHTML = '';
+      if (!hand || hand.length === 0) {
+        slot.innerHTML = `<div class="text-xs text-slate-500">ไม่มีไพ่บนมือ</div>`;
+        return;
+      }
+
+      if (game === 'coup') {
+        hand.forEach((card, idx) => {
+          const cardEl = document.createElement('div');
+          cardEl.className = `w-28 h-40 p-2.5 rounded-2xl border-2 flex flex-col justify-between card-shadow transition ${card.revealed ? 'bg-slate-900/60 border-slate-800 opacity-40 grayscale' : 'bg-gradient-to-b from-slate-900 to-slate-950 border-amber-500/80 text-white'}`;
+          cardEl.innerHTML = `
+            <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">บทบาทที่ ${idx+1}</div>
+            <div class="text-center my-auto">
+              <div class="text-2xl mb-1">${card.revealed ? '💀' : '🛡️'}</div>
+              <div class="font-bold text-sm leading-tight text-white">${COUP_ROLE_TH[card.role] || card.role}</div>
+            </div>
+            <div class="text-[10px] text-center text-slate-400">${card.revealed ? 'ถูกเปิดเผยแล้ว' : 'ไพ่มีชีวิต'}</div>
+          `;
+          slot.appendChild(cardEl);
+        });
+      }
+      else if (game === 'cabo') {
+        hand.forEach((card, idx) => {
+          const cardEl = document.createElement('div');
+          cardEl.className = 'w-20 h-28 p-2 rounded-xl bg-slate-950 border-2 border-purple-500/80 flex flex-col items-center justify-between card-shadow text-white cursor-pointer hover:border-amber-400';
+          cardEl.onclick = () => clientClickCaboCard(idx);
+          cardEl.innerHTML = `
+            <div class="text-[10px] text-purple-300 font-bold">ตำแหน่ง ${idx+1}</div>
+            <div class="text-xl font-black text-amber-400">${card.known ? card.val : '❓'}</div>
+            <div class="text-[9px] text-slate-400">${card.known ? 'จำได้' : 'คว่ำอยู่'}</div>
+          `;
+          slot.appendChild(cardEl);
+        });
+      }
+      else if (game === 'uno') {
+        hand.forEach((card, idx) => {
+          const colorClass = {
+            red: 'bg-red-600 border-red-400 text-white',
+            blue: 'bg-blue-600 border-blue-400 text-white',
+            green: 'bg-emerald-600 border-emerald-400 text-white',
+            yellow: 'bg-amber-400 border-amber-200 text-slate-950',
+            wild: 'bg-gradient-to-tr from-purple-600 to-pink-600 border-purple-400 text-white'
+          }[card.color] || 'bg-slate-700 text-white';
+
+          const cardEl = document.createElement('div');
+          cardEl.className = `w-16 h-24 sm:w-20 sm:h-28 rounded-xl border-2 ${colorClass} p-1.5 flex flex-col justify-between card-shadow cursor-pointer hover:-translate-y-2 transition`;
+          cardEl.onclick = () => clientPlayUnoCard(idx, card);
+          cardEl.innerHTML = `
+            <div class="text-xs font-black">${card.value}</div>
+            <div class="text-center font-black text-xl sm:text-2xl">${card.value}</div>
+            <div class="text-[9px] text-right font-bold uppercase">${card.color}</div>
+          `;
+          slot.appendChild(cardEl);
+        });
+      }
+    }
+
+    function renderClientActions(game, isMyTurn, hand, state) {
+      const reactionRow = document.getElementById('reactionButtonsRow');
+      const actionRow = document.getElementById('clientActionButtonsRow');
+      const turnAlert = document.getElementById('clientTurnAlert');
+
+      reactionRow.innerHTML = '';
+      actionRow.innerHTML = '';
+
+      if (isMyTurn) {
+        turnAlert.className = 'mt-2 text-center py-2 px-3 rounded-xl bg-amber-500/20 border border-amber-500 text-xs font-bold text-amber-300 animate-pulse';
+        turnAlert.textContent = '🌟 ถึงตาคุณเล่นแล้ว! เลือกคำสั่งด้านล่าง';
+      } else {
+        turnAlert.className = 'mt-2 text-center py-2 px-3 rounded-xl bg-slate-800/80 text-xs font-semibold text-slate-400';
+        turnAlert.textContent = `รอตาผู้เล่น: ${state.activePlayerName}`;
+      }
+
+      if (game === 'coup') {
+        reactionRow.innerHTML = `
+          <button onclick="clientSendAction('CHALLENGE_CALL')" class="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-xs text-white transition shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1">
+            🚨 ท้าทาย (จับโกหก!)
+          </button>
+          <button onclick="clientSendAction('BLOCK_CLAIM')" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1">
+            🛡️ ประกาศบล็อก
+          </button>
+        `;
+
+        if (isMyTurn) {
+          const coins = state.coins;
+          actionRow.innerHTML = `
+            <button onclick="clientSendAction('INCOME')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700">
+              💰 เก็บ 1 เหรียญ
+            </button>
+            <button onclick="clientSendAction('FOREIGN_AID')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700">
+              🤝 ขอเงินช่วย 2
+            </button>
+            <button onclick="openTargetSelector('COUP', 'เลือกเป้าหมายที่จะรัฐประหาร (7 เหรียญ)', ${coins >= 7})" ${coins < 7 ? 'disabled class="opacity-30 cursor-not-allowed p-2.5 rounded-xl bg-rose-900 text-xs font-bold text-white"' : 'class="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow-lg shadow-rose-600/30"'}>
+              ⚔️ รัฐประหาร (7)
+            </button>
+            <button onclick="clientSendAction('CLAIM_DUKE')" class="p-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold text-white">
+              👑 อ้างดยุก (เก็บ 3)
+            </button>
+            <button onclick="openTargetSelector('CLAIM_ASSASSIN', 'เลือกเป้าหมายที่จะสังหาร (จ่าย 3)', ${coins >= 3})" ${coins < 3 ? 'disabled class="opacity-30 cursor-not-allowed p-2.5 rounded-xl bg-purple-900 text-xs font-bold text-white"' : 'class="p-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white"'}>
+              🗡️ อ้างนักฆ่า (จ่าย 3)
+            </button>
+            <button onclick="openTargetSelector('CLAIM_CAPTAIN', 'เลือกเป้าหมายที่จะขโมย 2 เหรียญ', true)" class="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white">
+              🏴‍☠️ อ้างกัปตัน (ขโมย 2)
+            </button>
+          `;
+        }
+      }
+      else if (game === 'cabo') {
+        reactionRow.innerHTML = `
+          <button onclick="clientSendAction('CALL_CABO')" class="py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-black text-xs text-white transition shadow-lg shadow-purple-600/30">
+            📢 เรียก CABO!
+          </button>
+          <button onclick="clientSendAction('CABO_PEEK_INITIAL')" class="py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-white transition">
+            👀 ดูไพ่ 2 ใบแรก
+          </button>
+        `;
+
+        if (isMyTurn) {
+          actionRow.innerHTML = `
+            <button onclick="clientSendAction('CABO_DRAW_DECK')" class="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white">
+              🎴 จั่วกองกลาง
+            </button>
+            <button onclick="clientSendAction('CABO_TAKE_DISCARD')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700">
+              🗑️ หยิบจากกองทิ้ง
+            </button>
+            <button onclick="clientSendAction('CABO_PEEK_SELF')" class="p-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-xs font-bold text-white">
+              🔍 แอบดูไพ่ตัวเอง
+            </button>
+          `;
+        }
+      }
+      else if (game === 'uno') {
+        reactionRow.innerHTML = `
+          <button onclick="clientSendAction('DECLARE_UNO')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 font-black text-sm text-white transition shadow-lg shadow-amber-500/30 animate-bounce">
+            🔥 กด UNO! (เหลือ 1 ใบ)
+          </button>
+          <button onclick="clientSendAction('CATCH_UNO')" class="py-2.5 px-3 rounded-xl bg-rose-700 hover:bg-rose-600 font-bold text-xs text-white transition shadow-lg shadow-rose-700/30">
+            🚨 ดักจับลืม Uno! (+2)
+          </button>
+        `;
+
+        if (isMyTurn) {
+          actionRow.innerHTML = `
+            <button onclick="clientSendAction('UNO_DRAW')" class="col-span-3 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-xs text-white transition shadow-lg shadow-blue-600/30">
+              📥 จั่วไพ่เพิ่ม 1 ใบ (เมื่อไม่มีการ์ดลง)
+            </button>
+          `;
+        }
+      }
+    }
+
+    // TARGET MODAL LOGIC
+    function openTargetSelector(actionType, title, enabled) {
+      if (!enabled) return;
+      playClickSound();
+      const modal = document.getElementById('targetModal');
+      document.getElementById('targetModalTitle').textContent = title;
+      const list = document.getElementById('targetPlayersList');
+      list.innerHTML = '';
+
+      // Get other alive players
+      const otherPlayers = currentClientsCache ? currentClientsCache.filter(p => p.id !== myPlayerId && p.isAlive) : [];
+      if (otherPlayers.length === 0) {
+        list.innerHTML = `<div class="text-xs text-slate-400">ไม่มีผู้เล่นอื่นที่เลือกได้</div>`;
+      } else {
+        otherPlayers.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 text-left flex justify-between';
+          btn.innerHTML = `<span>${p.name}</span><span class="text-amber-400">🪙 ${p.coins || 0}</span>`;
+          btn.onclick = () => {
+            modal.classList.add('hidden');
+            clientSendAction(actionType, { targetId: p.id });
+          };
+          list.appendChild(btn);
+        });
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function closeTargetModal() {
+      document.getElementById('targetModal').classList.add('hidden');
+    }
+
+    let currentClientsCache = [];
+    function cacheCurrentClients(list) {
+      currentClientsCache = list;
+    }
+
+    // UNO WILD COLOR PICKER
+    function clientPlayUnoCard(cardIndex, card) {
+      if (card.color === 'wild') {
+        pendingWildCardIndex = cardIndex;
+        document.getElementById('unoColorModal').classList.remove('hidden');
+      } else {
+        clientSendAction('UNO_PLAY', { cardIndex: cardIndex });
+      }
+    }
+
+    function chooseUnoColor(color) {
+      document.getElementById('unoColorModal').classList.add('hidden');
+      if (pendingWildCardIndex !== null) {
+        clientSendAction('UNO_PLAY', { cardIndex: pendingWildCardIndex, chosenColor: color });
+        pendingWildCardIndex = null;
+      }
+    }
+
+    function clientSendAction(actionType, payload = {}) {
+      playClickSound();
+      const msg = {
+        type: 'GAME_ACTION',
+        playerId: myPlayerId,
+        action: actionType,
+        payload: payload
+      };
+      if (hostConn && hostConn.open) {
+        try { hostConn.send(msg); } catch(e) {}
+      }
+      if (localBroadcast) {
+        try { localBroadcast.postMessage(msg); } catch(e) {}
+      }
+    }
+
+    // ================= HOST ACTION DISPATCHER =================
+    function processGameAction(playerId, action, payload) {
+      const p = players.find(x => x.id === playerId);
+      if (!p) return;
+
+      logAction(`[${p.name}] ส่งคำสั่ง: ${action}`);
+
+      // 1. COUP
+      if (currentGameState.game === 'coup') {
+        if (action === 'INCOME') {
+          p.coins += 1;
+          logAction(`💰 ${p.name} เก็บรายได้ 1 เหรียญ (รวม: ${p.coins})`);
+          playCardSound();
+          nextTurn();
+        }
+        else if (action === 'FOREIGN_AID') {
+          currentGameState.pendingAction = {
+            actorId: p.id,
+            desc: `${p.name} ขอรับเงินช่วยเหลือ 2 เหรียญ (ดยุกบล็อกได้)`
+          };
+          broadcastGameState();
+        }
+        else if (action === 'COUP') {
+          if (p.coins >= 7) {
+            p.coins -= 7;
+            const targetId = payload.targetId || (players.find(x => x.id !== p.id && x.isAlive) || {}).id;
+            const target = players.find(x => x.id === targetId);
+            if (target) {
+              logAction(`💥 ${p.name} ทำรัฐประหารใส่ [${target.name}]!`);
+              damagePlayer(target.id);
+            }
+            playChallengeAlert();
+            nextTurn();
+          }
+        }
+        else if (action === 'CLAIM_DUKE') {
+          currentGameState.pendingAction = {
+            actorId: p.id,
+            claimedRole: 'Duke',
+            coinsGain: 3,
+            desc: `${p.name} อ้างตัวเป็น ดยุก ขอเก็บ 3 เหรียญ`
+          };
+          broadcastGameState();
+        }
+        else if (action === 'CLAIM_ASSASSIN') {
+          if (p.coins >= 3) {
+            p.coins -= 3;
+            const targetId = payload.targetId;
+            const target = players.find(x => x.id === targetId);
+            currentGameState.pendingAction = {
+              actorId: p.id,
+              claimedRole: 'Assassin',
+              targetId: targetId,
+              desc: `${p.name} อ้างตัวเป็น มือสังหาร จ่าย 3 เหรียญเล็งสังหาร [${target ? target.name : 'ศัตรู'}]`
+            };
+            broadcastGameState();
+          }
+        }
+        else if (action === 'CLAIM_CAPTAIN') {
+          const targetId = payload.targetId;
+          const target = players.find(x => x.id === targetId);
+          currentGameState.pendingAction = {
+            actorId: p.id,
+            claimedRole: 'Captain',
+            targetId: targetId,
+            desc: `${p.name} อ้างตัวเป็น กัปตัน ขอขโมย 2 เหรียญจาก [${target ? target.name : 'ศัตรู'}]`
+          };
+          broadcastGameState();
+        }
+        else if (action === 'CHALLENGE_CALL') {
+          playChallengeAlert();
+          triggerHostChallengeModal(p.name);
+        }
+        else if (action === 'BLOCK_CLAIM') {
+          logAction(`🛡️ ${p.name} ประกาศขอใช้สิทธิ์บล็อกแอ็กชัน!`);
+          playChallengeAlert();
+        }
+      }
+
+      // 2. CABO
+      else if (currentGameState.game === 'cabo') {
+        if (action === 'CABO_PEEK_INITIAL') {
+          const hand = currentGameState.hands[p.id];
+          if (hand) {
+            hand[0].known = true;
+            hand[1].known = true;
+            sendSecretToPlayer(p.id, `ไพ่ 2 ใบแรกของคุณคือ: <br><b class="text-3xl text-amber-400 font-black">[ใบที่ 1: แต้ม ${hand[0].val}] • [ใบที่ 2: แต้ม ${hand[1].val}]</b>`);
+            logAction(`👀 ${p.name} แอบดูไพ่ 2 ใบแรกของตัวเอง`);
+          }
+        }
+        else if (action === 'CABO_PEEK_SELF') {
+          const hand = currentGameState.hands[p.id];
+          if (hand && hand[0]) {
+            sendSecretToPlayer(p.id, `ไพ่ใบที่ 1 ของคุณคือแต้ม: <span class="text-3xl text-amber-400 font-black">${hand[0].val}</span>`);
+            logAction(`👀 ${p.name} แอบดูไพ่ตัวเอง 1 ใบ`);
+          }
+        }
+        else if (action === 'CABO_DRAW_DECK') {
+          if (currentGameState.deck.length > 0) {
+            const drawn = currentGameState.deck.pop();
+            currentGameState.discardPile.push(drawn);
+            logAction(`🎴 ${p.name} จั่วไพ่แล้วทิ้งลงกองทิ้ง: แต้ม [${drawn}]`);
+            playCardSound();
+            handleCaboTurnStep();
+          }
+        }
+        else if (action === 'CABO_TAKE_DISCARD') {
+          const top = currentGameState.discardPile.pop();
+          if (top !== undefined) {
+            const oldCard = currentGameState.hands[p.id][0].val;
+            currentGameState.hands[p.id][0].val = top;
+            currentGameState.hands[p.id][0].known = true;
+            currentGameState.discardPile.push(oldCard);
+            logAction(`🗑️ ${p.name} หยิบแต้ม [${top}] จากกองทิ้งสลับกับไพ่ใบที่ 1`);
+            playCardSound();
+            handleCaboTurnStep();
+          }
+        }
+        else if (action === 'CALL_CABO') {
+          currentGameState.caboCallerId = p.id;
+          currentGameState.finalTurnsLeft = players.length - 1;
+          playCaboCallSound();
+          logAction(`📢 ${p.name} ตะโกนเรียก "CABO!" เข้าสู่รอบสุดท้าย!`);
+          handleCaboTurnStep();
+        }
+      }
+
+      // 3. UNO
+      else if (currentGameState.game === 'uno') {
+        if (action === 'UNO_PLAY') {
+          const cardIdx = payload.cardIndex;
+          const chosenColor = payload.chosenColor;
+          const hand = currentGameState.hands[p.id];
+          if (hand && hand[cardIdx]) {
+            const card = hand[cardIdx];
+            const top = currentGameState.discardPile[currentGameState.discardPile.length - 1];
+
+            const canPlay = (card.color === 'wild' || card.color === currentGameState.activeColor || card.value === top.value);
+            if (canPlay) {
+              hand.splice(cardIdx, 1);
+              p.handCount = hand.length;
+              currentGameState.discardPile.push(card);
+              currentGameState.activeColor = (card.color === 'wild') ? (chosenColor || 'red') : card.color;
+              logAction(`🌈 ${p.name} ลงไพ่ [${card.color} ${card.value}] ${card.color === 'wild' ? `(เปลี่ยนเป็นสี: ${UNO_COLOR_TH[currentGameState.activeColor]})` : ''}`);
+              playCardSound();
+
+              if (card.value === 'Reverse') {
+                currentGameState.direction *= -1;
+                logAction('🔄 เปลี่ยนทิศทางการเล่นรอบโต๊ะ!');
+              } else if (card.value === 'Skip') {
+                logAction('⏭️ ข้ามเทิร์นผู้เล่นถัดไป!');
+                skipNextTurn();
+              } else if (card.value === '+2') {
+                givePenaltyCards(2);
+              } else if (card.value === '+4') {
+                givePenaltyCards(4);
+              }
+
+              if (hand.length === 0) {
+                triggerVictory(p.name, 'ชนะเกม Uno ด้วยการลงไพ่หมดมือคนแรก!');
+                return;
+              }
+
+              nextTurn();
+            } else {
+              playErrorSound();
+            }
+          }
+        }
+        else if (action === 'UNO_DRAW') {
+          if (currentGameState.deck.length > 0) {
+            const card = currentGameState.deck.pop();
+            currentGameState.hands[p.id].push(card);
+            p.handCount = currentGameState.hands[p.id].length;
+            logAction(`📥 ${p.name} จั่วไพ่เพิ่ม 1 ใบ`);
+            playCardSound();
+            nextTurn();
+          }
+        }
+        else if (action === 'DECLARE_UNO') {
+          p.calledUno = true;
+          playUnoChime();
+          logAction(`🔥 ${p.name} ประกาศ "UNO!" เหลือไพ่ 1 ใบแล้ว!`);
+        }
+        else if (action === 'CATCH_UNO') {
+          const uncalled = players.find(x => x.handCount === 1 && !x.calledUno);
+          if (uncalled) {
+            logAction(`🚨 ${p.name} ดักจับได้ว่า ${uncalled.name} ลืมพูด UNO! โดนปรับจั่ว 2 ใบ`);
+            givePlayerCards(uncalled.id, 2);
+            playErrorSound();
+          }
+        }
+      }
+
+      broadcastGameState();
+    }
+
+    function sendSecretToPlayer(playerId, htmlContent) {
+      const msg = { type: 'SECRET_REVEAL', content: htmlContent };
+      const conn = connections[playerId];
+      if (conn && conn.open) {
+        try { conn.send(msg); } catch(e) {}
+      }
+      if (localBroadcast) {
+        try { localBroadcast.postMessage({ ...msg, targetPlayerId: playerId }); } catch(e) {}
+      }
+    }
+
+    function handleCaboTurnStep() {
+      if (currentGameState.finalTurnsLeft !== null) {
+        currentGameState.finalTurnsLeft--;
+        if (currentGameState.finalTurnsLeft <= 0) {
+          endCaboGame();
+          return;
+        }
+      }
+      nextTurn();
+    }
+
+    function endCaboGame() {
+      let minScore = 999;
+      let winner = null;
+      let summary = '';
+
+      players.forEach(p => {
+        const hand = currentGameState.hands[p.id] || [];
+        const total = hand.reduce((sum, c) => sum + (c.val || 0), 0);
+        summary += `${p.name}: ${total} แต้ม, `;
+        if (total < minScore) {
+          minScore = total;
+          winner = p;
+        }
+      });
+
+      triggerVictory(winner ? winner.name : 'ทุกคน', `จบรอบ Cabo! แต้มต่ำสุดคือ ${minScore} แต้ม (${summary})`);
+    }
+
+    function hostConfirmCoupActionSuccess() {
+      const act = currentGameState.pendingAction;
+      if (act) {
+        const actor = players.find(x => x.id === act.actorId);
+        if (act.coinsGain && actor) {
+          actor.coins += act.coinsGain;
+          logAction(`✓ ${actor.name} ได้รับ ${act.coinsGain} เหรียญตามคำอ้าง`);
+        } else if (act.desc.includes('ขอรับเงินช่วยเหลือ') && actor) {
+          actor.coins += 2;
+          logAction(`✓ ${actor.name} ได้รับเงินช่วยเหลือ 2 เหรียญ`);
+        } else if (act.claimedRole === 'Assassin' && act.targetId) {
+          const target = players.find(x => x.id === act.targetId);
+          if (target) {
+            logAction(`🗡️ ${actor.name} สังหาร [${target.name}] สำเร็จ!`);
+            damagePlayer(target.id);
+          }
+        } else if (act.claimedRole === 'Captain' && act.targetId) {
+          const target = players.find(x => x.id === act.targetId);
+          if (target && target.coins > 0) {
+            const stolen = Math.min(2, target.coins);
+            target.coins -= stolen;
+            actor.coins += stolen;
+            logAction(`🏴‍☠️ ${actor.name} ขโมย ${stolen} เหรียญจาก [${target.name}] สำเร็จ`);
+          }
+        }
+        currentGameState.pendingAction = null;
+        playCardSound();
+        nextTurn();
+        broadcastGameState();
+      }
+    }
+
+    function triggerHostChallengeModal(challengerName) {
+      const banner = document.getElementById('challengeBanner');
+      const desc = document.getElementById('challengeBannerDesc');
+      const btns = document.getElementById('challengeBannerButtons');
+
+      desc.textContent = `ผู้เล่น [${challengerName}] ลุกขึ้นท้าทายจับโกหก!`;
+      btns.innerHTML = `
+        <button onclick="resolveChallenge(true)" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30">
+          คนอ้างมีไพ่จริง (คนท้าทายแพ้)
+        </button>
+        <button onclick="resolveChallenge(false)" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30">
+          คนอ้างโกหก (คนอ้างแพ้เสียไพ่)
+        </button>
+      `;
+      banner.classList.remove('hidden');
+    }
+
+    function resolveChallenge(claimedHasCard) {
+      document.getElementById('challengeBanner').classList.add('hidden');
+      const act = currentGameState.pendingAction;
+      if (!act) return;
+
+      const actor = players.find(x => x.id === act.actorId);
+      if (claimedHasCard) {
+        logAction(`⚖️ ผลตัดสิน: ${actor.name} มีไพ่จริง! คนท้าทายแพ้`);
+        if (act.coinsGain) actor.coins += act.coinsGain;
+      } else {
+        logAction(`⚖️ ผลตัดสิน: ${actor.name} โกหก! เสียอิทธิพล 1 ใบ`);
+        damagePlayer(actor.id);
+      }
+      currentGameState.pendingAction = null;
+      nextTurn();
+      broadcastGameState();
+    }
+
+    function damagePlayer(playerId) {
+      const p = players.find(x => x.id === playerId);
+      if (!p) return;
+      const hand = currentGameState.hands[playerId];
+      const liveCard = hand ? hand.find(c => !c.revealed) : null;
+      if (liveCard) {
+        liveCard.revealed = true;
+        p.handCount--;
+        logAction(`💀 ${p.name} เสียไพ่: ${COUP_ROLE_TH[liveCard.role] || liveCard.role}`);
+        if (p.handCount <= 0) {
+          p.isAlive = false;
+          logAction(`❌ ${p.name} ตกรอบจากการแข่งขัน!`);
+        }
+      }
+      const alive = players.filter(x => x.isAlive);
+      if (alive.length === 1) {
+        triggerVictory(alive[0].name, 'เป็นผู้รอดชีวิตคนสุดท้ายในเกม Coup!');
+      }
+    }
+
+    function givePenaltyCards(count) {
+      const nextIdx = (currentGameState.turnIndex + (currentGameState.direction || 1) + players.length) % players.length;
+      givePlayerCards(players[nextIdx].id, count);
+      skipNextTurn();
+    }
+
+    function givePlayerCards(playerId, count) {
+      const p = players.find(x => x.id === playerId);
+      if (p && currentGameState.deck.length >= count) {
+        for (let i = 0; i < count; i++) {
+          currentGameState.hands[playerId].push(currentGameState.deck.pop());
+        }
+        p.handCount = currentGameState.hands[playerId].length;
+        logAction(`⚠️ ${p.name} โดนจั่วเพิ่ม ${count} ใบ`);
+      }
+    }
+
+    function nextTurn() {
+      if (!currentGameState) return;
+      const total = players.length;
+      let nextIdx = (currentGameState.turnIndex + (currentGameState.direction || 1) + total) % total;
+      
+      if (currentGameState.game === 'coup') {
+        let attempts = 0;
+        while (!players[nextIdx].isAlive && attempts < total) {
+          nextIdx = (nextIdx + (currentGameState.direction || 1) + total) % total;
+          attempts++;
+        }
+      }
+
+      currentGameState.turnIndex = nextIdx;
+      players[nextIdx].calledUno = false;
+    }
+
+    function skipNextTurn() {
+      nextTurn();
+      nextTurn();
+    }
+
+    function hostSkipTurn() {
+      playClickSound();
+      logAction('⏭️ Host กดข้ามเทิร์นของผู้เล่นปัจจุบัน');
+      nextTurn();
+      broadcastGameState();
+    }
+
+    function triggerVictory(winnerName, desc) {
+      playVictorySound();
+      document.getElementById('winnerNameDisplay').textContent = `ผู้ชนะ: ${winnerName}`;
+      document.getElementById('winnerStatsDesc').textContent = desc;
+      document.getElementById('victoryOverlay').classList.remove('hidden');
+      sendToAllClients({ type: 'VICTORY', winnerName: winnerName, desc: desc });
+    }
+
+    function rematchGame() {
+      document.getElementById('victoryOverlay').classList.add('hidden');
+      hostStartSelectedGame();
+    }
+
+    function exitToHub() {
+      document.getElementById('victoryOverlay').classList.add('hidden');
+      document.getElementById('hostGameView').classList.add('hidden');
+      document.getElementById('hostLobbyView').classList.remove('hidden');
+      currentGameState = null;
+      updateHostLobbyUI();
+      broadcastLobbyState();
+    }
+
+    function hostReturnToLobbyConfirm() {
+      if (confirm('คุณต้องการยุติเกมปัจจุบันและกลับไปที่หน้าเลือกเกมหรือไม่?')) {
+        exitToHub();
+      }
+    }
+  </script>
+</body>
+</html>
