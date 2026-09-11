@@ -1,0 +1,2943 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Party Boardgame Hub | ศูนย์รวมเกมปาร์ตี้บอร์ดเกมออนไลน์</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#fdf4ff', 500: '#a855f7', 600: '#9333ea', 700: '#7e22ce', 900: '#3b0764' },
+            coup: { 500: '#e11d48', 600: '#be123c' },
+            kitten: { 500: '#f97316', 600: '#ea580c' },
+            cabo: { 500: '#06b6d4', 600: '#0891b2' },
+            werewolf: { 500: '#6366f1', 600: '#4f46e5' },
+            uno: { 500: '#eab308', 600: '#ca8a04' },
+            insider: { 500: '#10b981', 600: '#059669' }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'bounce-subtle': 'bounceSubtle 2s infinite'
+          },
+          keyframes: {
+            bounceSubtle: {
+              '0%, 100%': { transform: 'translateY(-3%)' },
+              '50%': { transform: 'translateY(0)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- PeerJS for Zero-Backend WebRTC P2P Multiplayer -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  
+  <!-- QRCode.js CDN for Mobile Room Scanning -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <!-- Canvas Confetti for Victory Screen -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Fredoka:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Prompt', 'Fredoka', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(147, 51, 234, 0.4);
+      border-radius: 9999px;
+    }
+    .card-3d {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card-3d:hover {
+      transform: translateY(-4px) scale(1.02);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-purple-500 selection:text-white">
+  <!-- Top Global Navigation -->
+  <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-4 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="App.showScreen('screen-home')">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+        <i data-lucide="dices" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base md:text-lg tracking-tight bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">
+          Party Boardgames Hub
+        </h1>
+        <p class="text-[10px] text-slate-400">Zero-Backend Multiplayer • เล่นผ่านมือถือได้ทันที</p>
+      </div>
+    </div>
+
+    <!-- Active Room Status Badge -->
+    <div id="top-room-badge" class="hidden flex items-center gap-2 bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-full text-xs">
+      <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="text-slate-300 font-medium">ห้อง:</span>
+      <span id="top-room-code" class="font-mono font-bold text-amber-400 tracking-wider"></span>
+      <button onclick="App.copyInviteLink()" title="คัดลอกลิงก์ห้อง" class="ml-1 text-slate-400 hover:text-white p-0.5">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+      </button>
+      <button onclick="App.leaveRoom()" title="ออกจากห้อง" class="text-rose-400 hover:text-rose-300 ml-1">
+        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+
+    <!-- Sound & Help -->
+    <div class="flex items-center gap-2">
+      <button id="btn-sound" onclick="SoundFX.toggle()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="เปิด/ปิดเสียง">
+        <i id="icon-sound" data-lucide="volume-2" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-help" onclick="App.showGlobalHelp()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="วิธีเล่น">
+        <i data-lucide="help-circle" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 flex flex-col relative max-w-7xl w-full mx-auto p-3 sm:p-6">
+    
+    <!-- ======================================================== -->
+    <!-- SCREEN 1: HOME / GAME SELECTION                          -->
+    <!-- ======================================================== -->
+    <section id="screen-home" class="flex-1 flex flex-col justify-center">
+      <div class="text-center max-w-2xl mx-auto mb-8 mt-2">
+        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20 mb-3 inline-block">
+          🎮 Standalone WebRTC Party Games (รองรับ GitHub Pages 100%)
+        </span>
+        <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
+          เล่นบอร์ดเกมกับเพื่อน <span class="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">ไม่ต้องลงแอป</span>
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          แค่เปิดเว็บ สแกน QR Code หรือแชร์ลิงก์ให้เพื่อน แล้วหยิบสมาร์ทโฟนขึ้นมาเล่นเป็นคอนโทรลเลอร์ได้ทันที รองรับผู้เล่น 2–10 คน
+        </p>
+      </div>
+
+      <!-- Quick Play / Join Actions Bar -->
+      <div class="max-w-xl mx-auto w-full bg-slate-900/90 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-xl backdrop-blur-md mb-10">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Create Room -->
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="user-plus" class="w-4 h-4 text-purple-400"></i> ชื่อของคุณ
+            </label>
+            <input id="input-player-name" type="text" maxlength="12" placeholder="ใส่ชื่อเล่นของคุณ..." value="ผู้เล่น 1" 
+                   class="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition">
+            <button onclick="App.hostQuickRoom()" class="mt-1 w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+              <i data-lucide="crown" class="w-4 h-4"></i> สร้างห้องใหม่ (Host)
+            </button>
+          </div>
+
+          <!-- Join Room -->
+          <div class="flex flex-col gap-2 sm:border-l sm:border-slate-800 sm:pl-4">
+            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="key" class="w-4 h-4 text-pink-400"></i> รหัสห้อง 4 หลัก
+            </label>
+            <input id="input-join-code" type="text" maxlength="4" placeholder="เช่น AB12" 
+                   class="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm uppercase tracking-widest text-center font-mono font-bold text-amber-300 focus:outline-none focus:border-pink-500 transition">
+            <button onclick="App.joinRoomFromInput()" class="mt-1 w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm border border-slate-700 flex items-center justify-center gap-2 transition active:scale-95">
+              <i data-lucide="log-in" class="w-4 h-4"></i> เข้าร่วมห้อง
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Games Grid -->
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="gamepad-2" class="w-5 h-5 text-purple-400"></i> เกมทั้งหมดในระบบ (6 เกม)
+        </h3>
+        <span class="text-xs text-slate-400">คลิกที่เกมเพื่อสร้างห้องเล่นทันที</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- 1. Coup -->
+        <div onclick="App.selectGameAndCreate('coup')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-rose-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Coup</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 2–6 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-rose-400 transition">เกมโค่นอำนาจ</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            เกมบลัฟชิงไหวชิงพริบสุดเดือด สวมบทบาทดยุก นักฆ่า กัปตัน ทูต และเคาน์เตส ท้าทายคำโกหกและกำจัดอิทธิพลของคู่แข่งให้หมดสิ้น!
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~15 นาที</span>
+            <span class="text-rose-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+
+        <!-- 2. Exploding Kittens -->
+        <div onclick="App.selectGameAndCreate('exploding-kittens')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-amber-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Exploding Kittens</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 2–5 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-amber-400 transition">เหมียวระเบิด</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            เกมการ์ดสุดฮาและกดดัน จั่วการ์ดไปเรื่อยๆ ใครจั่วโดนเหมียวระเบิดถ้าไม่มีการ์ดกู้ระเบิด (Defuse) ก็ตกรอบทันที! มีการ์ดแกล้งเพื่อนเพียบ
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~15 นาที</span>
+            <span class="text-amber-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+
+        <!-- 3. Cabo -->
+        <div onclick="App.selectGameAndCreate('cabo')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-cyan-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Cabo</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 2–4 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-cyan-400 transition">คาโบ (Cabo)</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            เกมการ์ดยอดฮิต ผสมผสานความจำ ทักษะ และดวง คว่ำการ์ด 4 ใบ แอบดู แอบส่องการ์ดเพื่อน สลับการ์ด และประกาศ "Cabo" เพื่อชนะด้วยแต้มน้อยสุด!
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~20 นาที</span>
+            <span class="text-cyan-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+
+        <!-- 4. Werewolf / Mafia -->
+        <div onclick="App.selectGameAndCreate('werewolf')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-indigo-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Werewolf</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 4–10 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-indigo-400 transition">มนุษย์หมาป่า / มาเฟีย</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            ระบบสลับกลางวัน-กลางคืนอัตโนมัติ ซ่อน Role ลับ (หมาป่า, ผู้หยั่งรู้/Seer, หมอ/Doctor, ชาวบ้าน) โหวตหาคนร้ายและกำจัดในเวลากลางวัน!
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~20 นาที</span>
+            <span class="text-indigo-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+
+        <!-- 5. Uno -->
+        <div onclick="App.selectGameAndCreate('uno')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-yellow-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">UNO Classic</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 2–6 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-yellow-400 transition">อูโน่ (UNO)</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            เกมไพ่ปาร์ตี้ระดับตำนาน ลงไพ่ตามสีหรือตัวเลข จัดเต็มการ์ดพิเศษ Draw Two, Skip, Reverse, Wild, Wild Draw Four และอย่าลืมกดปุ่มพูด UNO!
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~15 นาที</span>
+            <span class="text-yellow-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+
+        <!-- 6. Insider -->
+        <div onclick="App.selectGameAndCreate('insider')" class="card-3d bg-gradient-to-b from-slate-900 to-slate-900/60 border border-slate-800 hover:border-emerald-500/60 p-5 rounded-2xl cursor-pointer relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition"></div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Insider</span>
+            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 4–8 คน</span>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1 group-hover:text-emerald-400 transition">อินไซเดอร์ (Insider)</h4>
+          <p class="text-xs text-slate-400 mb-4 line-clamp-2">
+            เกมทายคำ 20 คำถาม แต่มีคนหนึ่งเป็น "Insider" ที่แอบรู้คำลับล่วงหน้า คอยช่วยตะล่อมเพื่อนให้ทายถูกโดยไม่ให้ใครจับได้ว่าตัวเองคือคนวงใน!
+          </p>
+          <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-800/80">
+            <span class="text-slate-500">⏱️ ~15 นาที</span>
+            <span class="text-emerald-400 font-medium group-hover:translate-x-1 transition flex items-center gap-1">เล่นเกมนี้ <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- ======================================================== -->
+    <!-- SCREEN 2: LOBBY / ROOM MANAGEMENT                        -->
+    <!-- ======================================================== -->
+    <section id="screen-lobby" class="hidden flex-1 flex flex-col">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl max-w-4xl mx-auto w-full">
+        <!-- Lobby Header -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800">
+          <div class="flex items-center gap-3">
+            <div id="lobby-game-badge" class="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 text-xl font-bold">
+              🎮
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 id="lobby-game-title" class="text-2xl font-black text-white">เลือกเกม</h3>
+                <span id="lobby-player-count-range" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">2–6 คน</span>
+              </div>
+              <p id="lobby-game-subtitle" class="text-xs text-slate-400">รอผู้เล่นเข้าร่วมห้อง...</p>
+            </div>
+          </div>
+
+          <!-- Room Code & Quick Copy -->
+          <div class="flex items-center gap-3 bg-slate-800/80 border border-slate-700/80 p-2.5 px-4 rounded-2xl">
+            <div class="text-center sm:text-right">
+              <span class="text-[10px] uppercase tracking-wider text-slate-400 block">รหัสห้อง</span>
+              <span id="lobby-room-code" class="text-2xl font-mono font-black text-amber-400 tracking-widest leading-none">----</span>
+            </div>
+            <button onclick="App.copyInviteLink()" class="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow transition" title="คัดลอกลิงก์">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Lobby Content: QR Code + Players -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 my-6">
+          <!-- QR Code Column -->
+          <div class="md:col-span-4 flex flex-col items-center justify-center bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 text-center">
+            <span class="text-xs font-medium text-slate-300 mb-3 flex items-center gap-1.5">
+              <i data-lucide="qr-code" class="w-4 h-4 text-purple-400"></i> สแกนด้วยมือถือเพื่อเข้าเล่น
+            </span>
+            <div id="qrcode-container" class="bg-white p-3 rounded-2xl shadow-xl border-4 border-purple-500/20 flex items-center justify-center min-h-[160px] min-w-[160px]">
+              <!-- Canvas rendered here -->
+            </div>
+            <p class="text-[11px] text-slate-400 mt-3">หรือเปิดเบราว์เซอร์แล้วใส่รหัส 4 หลัก</p>
+          </div>
+
+          <!-- Players List Column -->
+          <div class="md:col-span-8 flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i> ผู้เล่นในห้อง (<span id="lobby-player-count">1</span> คน)
+              </h4>
+              <div class="flex items-center gap-2" id="host-bot-controls">
+                <button onclick="App.addTestBot()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
+                  <i data-lucide="bot" class="w-3.5 h-3.5 text-amber-400"></i> + เพิ่มบอททดสอบ
+                </button>
+              </div>
+            </div>
+
+            <!-- Players Grid -->
+            <div id="lobby-players-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 custom-scrollbar max-h-64 overflow-y-auto pr-1">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode & Settings Options -->
+        <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-slate-300">โหมดการแสดงผล:</span>
+            <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700">
+              <button id="btn-mode-handheld" onclick="App.setDisplayMode('handheld')" class="px-3 py-1 text-xs font-medium rounded-lg bg-purple-600 text-white transition">
+                📱 หน้าจอเดียว (All-in-one)
+              </button>
+              <button id="btn-mode-tabletop" onclick="App.setDisplayMode('tabletop')" class="px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">
+                📺 จอกลาง TV / Tabletop
+              </button>
+            </div>
+          </div>
+
+          <!-- Host Start Game Button -->
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <button onclick="App.showScreen('screen-home')" class="text-xs text-slate-400 hover:text-white py-2 px-3">
+              เปลี่ยนเกม
+            </button>
+            <button id="btn-start-game" onclick="App.startGame()" class="flex-1 sm:flex-initial bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              <i data-lucide="play" class="w-4 h-4 fill-white"></i> เริ่มเกมทันที!
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SCREEN 3: GAMEPLAY ARENA                                 -->
+    <!-- ======================================================== -->
+    <section id="screen-game" class="hidden flex-1 flex flex-col">
+      <!-- Game Sub-Header / Status Bar -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 px-4 mb-4 flex flex-wrap items-center justify-between gap-2 shadow-lg backdrop-blur-md">
+        <div class="flex items-center gap-3">
+          <span id="game-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            GAME
+          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">เทิร์นของ:</span>
+            <span id="game-current-turn-player" class="font-bold text-white text-sm">--</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Game Timer or Turn Phase -->
+          <div id="game-phase-indicator" class="text-xs bg-slate-800 px-3 py-1 rounded-full border border-slate-700 text-amber-300 font-medium flex items-center gap-1.5">
+            <i data-lucide="clock" class="w-3.5 h-3.5"></i> <span id="game-phase-text">เฟสเตรียมตัว</span>
+          </div>
+
+          <!-- Actions Log Trigger / Help -->
+          <button onclick="App.toggleGameLog()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1">
+            <i data-lucide="list" class="w-3.5 h-3.5"></i> ประวัติ
+          </button>
+          <button onclick="App.restartGamePrompt()" class="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 px-2.5 py-1 rounded-lg border border-rose-500/30 flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> เริ่มใหม่
+          </button>
+        </div>
+      </div>
+
+      <!-- GAME CANVAS (Dynamic per game) -->
+      <div id="game-canvas" class="flex-1 flex flex-col relative min-h-[450px]">
+        <!-- Rendered per Game: Coup, Exploding Kittens, Cabo, Werewolf, Uno, Insider -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- REACTION / CHALLENGE MODAL OVERLAY (Coup, etc.)          -->
+  <!-- ======================================================== -->
+  <div id="modal-reaction" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-rose-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl animate-bounce-subtle text-center">
+      <div class="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="alert-triangle" class="w-8 h-8 animate-pulse"></i>
+      </div>
+      <h3 id="modal-reaction-title" class="text-xl font-black text-white mb-2">มีผู้เล่นประกาศ Action!</h3>
+      <p id="modal-reaction-desc" class="text-sm text-slate-300 mb-5">ผู้เล่นกำลังขอใช้งานสิทธิ์</p>
+      
+      <!-- Countdown bar -->
+      <div class="w-full bg-slate-800 rounded-full h-2 mb-6 overflow-hidden">
+        <div id="reaction-timer-bar" class="bg-gradient-to-r from-rose-500 to-amber-500 h-full w-full transition-all duration-100 ease-linear"></div>
+      </div>
+
+      <div id="reaction-buttons-container" class="grid grid-cols-2 gap-3">
+        <!-- Buttons injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- VICTORY / GAME OVER MODAL                                -->
+  <!-- ======================================================== -->
+  <div id="modal-victory" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-purple-500/60 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl text-center relative overflow-hidden">
+      <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400 to-pink-500 text-slate-950 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-amber-500/30">
+        <i data-lucide="trophy" class="w-10 h-10"></i>
+      </div>
+      <span class="text-xs font-bold text-amber-400 uppercase tracking-widest">ยินดีด้วย! ผู้ชนะเกมนี้คือ</span>
+      <h3 id="victory-winner-name" class="text-3xl font-black text-white my-2">ผู้เล่น 1</h3>
+      <p id="victory-summary" class="text-sm text-slate-300 mb-6">โค่นคู่แข่งทั้งหมดและคว้าชัยชนะสำเร็จ</p>
+
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button onclick="App.playAgain()" class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 px-4 rounded-xl text-sm shadow-lg shadow-purple-600/30 transition">
+          เล่นเกมนี้อีกครั้ง (ห้องเดิม)
+        </button>
+        <button onclick="App.backToLobby()" class="sm:w-36 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 px-4 rounded-xl text-sm border border-slate-700 transition">
+          เลือกเกมอื่น
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- GLOBAL RULES MODAL                                       -->
+  <!-- ======================================================== -->
+  <div id="modal-rules" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full shadow-2xl flex flex-col max-h-[85vh]">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <h3 id="rules-modal-title" class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-purple-400"></i> กฎและวิธีเล่น
+        </h3>
+        <button onclick="document.getElementById('modal-rules').classList.add('hidden')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="rules-modal-content" class="flex-1 overflow-y-auto custom-scrollbar my-4 text-sm text-slate-300 space-y-3 leading-relaxed">
+        <!-- Injected per game -->
+      </div>
+      <div class="pt-4 border-t border-slate-800 text-right">
+        <button onclick="document.getElementById('modal-rules').classList.add('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-semibold">
+          เข้าใจแล้ว
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Log Drawer -->
+  <div id="drawer-game-log" class="fixed bottom-0 right-0 max-w-md w-full bg-slate-900 border-t sm:border-l border-slate-800 p-4 rounded-t-3xl sm:rounded-tl-3xl shadow-2xl z-40 transform translate-y-full transition-transform duration-300">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+      <h4 class="text-sm font-bold text-white flex items-center gap-2">
+        <i data-lucide="history" class="w-4 h-4 text-purple-400"></i> บันทึกเหตุการณ์ในเกม
+      </h4>
+      <button onclick="App.toggleGameLog()" class="text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div id="game-log-entries" class="h-48 overflow-y-auto custom-scrollbar text-xs space-y-1.5 text-slate-300">
+      <!-- Injected -->
+    </div>
+  </div>
+  <!-- ======================================================== -->
+  <!-- JAVASCRIPT: CORE LOGIC & 6 GAME ENGINES                 -->
+  <!-- ======================================================== -->
+  <script>
+    /* =========================================================
+       1. PROCEDURAL WEB AUDIO SYNTHESIZER (No External Files)
+       ========================================================= */
+    const SoundFX = {
+      enabled: true,
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      toggle() {
+        this.enabled = !this.enabled;
+        const icon = document.getElementById('icon-sound');
+        if (icon) {
+          icon.setAttribute('data-lucide', this.enabled ? 'volume-2' : 'volume-x');
+          lucide.createIcons();
+        }
+      },
+      playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.15) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      },
+      playClick() { this.playTone(600, 'triangle', 0.05, 0.1); },
+      playCard() {
+        if (!this.enabled) return;
+        this.playTone(320, 'sine', 0.08, 0.12);
+        setTimeout(() => this.playTone(450, 'sine', 0.08, 0.12), 40);
+      },
+      playTurn() {
+        this.playTone(523.25, 'sine', 0.1, 0.15); // C5
+        setTimeout(() => this.playTone(659.25, 'sine', 0.15, 0.15), 90); // E5
+      },
+      playAlert() {
+        this.playTone(800, 'square', 0.12, 0.1);
+        setTimeout(() => this.playTone(600, 'square', 0.18, 0.1), 100);
+      },
+      playExplosion() {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const bufferSize = this.ctx.sampleRate * 0.4;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.4);
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+          noise.start();
+        } catch(e) {}
+      },
+      playWin() {
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C
+        notes.forEach((freq, i) => {
+          setTimeout(() => this.playTone(freq, 'triangle', 0.25, 0.2), i * 140);
+        });
+      }
+    };
+
+    /* =========================================================
+       2. NETWORKING & ROOM ORCHESTRATOR (PeerJS WebRTC)
+       ========================================================= */
+    const Network = {
+      peer: null,
+      connections: {}, // host: map of peerId -> dataConnection
+      hostConn: null,  // client: connection to host
+      isHost: false,
+      myId: '',
+      roomCode: '',
+      
+      initHost(roomCode, onOpenCallback) {
+        this.isHost = true;
+        this.roomCode = roomCode.toUpperCase();
+        this.cleanup();
+        
+        const peerId = `pbg-${this.roomCode.toLowerCase()}`;
+        try {
+          this.peer = new Peer(peerId, { debug: 1 });
+        } catch(e) {
+          this.peer = new Peer(null, { debug: 1 });
+        }
+
+        this.peer.on('open', (id) => {
+          this.myId = id;
+          if (onOpenCallback) onOpenCallback(this.roomCode);
+        });
+
+        this.peer.on('connection', (conn) => {
+          conn.on('open', () => {
+            this.connections[conn.peer] = conn;
+            conn.on('data', (data) => this.handleClientMessage(conn.peer, data));
+          });
+          conn.on('close', () => {
+            delete this.connections[conn.peer];
+            App.onPlayerDisconnected(conn.peer);
+          });
+        });
+
+        this.peer.on('error', (err) => {
+          console.warn('Peer error:', err);
+          if (err.type === 'unavailable-id') {
+            const fallbackCode = App.generateRandomCode();
+            Network.initHost(fallbackCode, onOpenCallback);
+          }
+        });
+      },
+
+      joinRoom(roomCode, playerName, onSuccess, onError) {
+        this.isHost = false;
+        this.roomCode = roomCode.toUpperCase();
+        this.cleanup();
+
+        this.peer = new Peer(null, { debug: 1 });
+        this.peer.on('open', (id) => {
+          this.myId = id;
+          const hostPeerId = `pbg-${this.roomCode.toLowerCase()}`;
+          const conn = this.peer.connect(hostPeerId, { reliable: true });
+
+          conn.on('open', () => {
+            this.hostConn = conn;
+            conn.send({
+              type: 'JOIN',
+              playerId: this.myId,
+              name: playerName
+            });
+            if (onSuccess) onSuccess();
+          });
+
+          conn.on('data', (data) => this.handleHostMessage(data));
+
+          conn.on('close', () => {
+            App.showToast('การเชื่อมต่อกับ Host ขาดหาย', 'error');
+          });
+        });
+
+        this.peer.on('error', (err) => {
+          console.error(err);
+          if (onError) onError(err);
+        });
+      },
+
+      broadcast(data) {
+        if (!this.isHost) return;
+        Object.values(this.connections).forEach(conn => {
+          if (conn.open) conn.send(data);
+        });
+      },
+
+      sendTo(peerId, data) {
+        if (this.isHost && this.connections[peerId] && this.connections[peerId].open) {
+          this.connections[peerId].send(data);
+        }
+      },
+
+      sendToHost(data) {
+        if (this.hostConn && this.hostConn.open) {
+          this.hostConn.send(data);
+        } else if (this.isHost) {
+          this.handleClientMessage(this.myId, data);
+        }
+      },
+
+      handleClientMessage(fromPeerId, data) {
+        App.onMessageFromClient(fromPeerId, data);
+      },
+
+      handleHostMessage(data) {
+        App.onMessageFromHost(data);
+      },
+
+      cleanup() {
+        if (this.peer) {
+          try { this.peer.destroy(); } catch(e) {}
+          this.peer = null;
+        }
+        this.connections = {};
+        this.hostConn = null;
+      }
+    };
+    /* =========================================================
+       3. MAIN APPLICATION ORCHESTRATOR (App)
+       ========================================================= */
+    const App = {
+      selectedGameId: 'coup',
+      roomCode: '',
+      displayMode: 'handheld', // 'handheld' or 'tabletop'
+      myPlayerId: 'local_p1',
+      myPlayerName: 'ผู้เล่น 1',
+      isHost: true,
+      
+      players: [], // [{ id, name, isHost, isBot, ready }]
+      gameState: null,
+      gameEngine: null,
+      gameLog: [],
+
+      gamesMetadata: {
+        'coup': {
+          title: 'Coup (เกมโค่นอำนาจ)',
+          badge: 'COUP',
+          minPlayers: 2,
+          maxPlayers: 6,
+          summary: 'บลัฟ อ้างสิทธิ์ ท้าทาย และกำจัดอิทธิพลของฝ่ายตรงข้ามเพื่อเป็นผู้อยู่รอดคนสุดท้าย!',
+          rules: `
+            <div class="space-y-2">
+              <p><b>เป้าหมาย:</b> อยู่รอดเป็นคนสุดท้ายโดยรักษาการ์ดอิทธิพล (Influence) ในมือไว้</p>
+              <p><b>ตัวละครและการกระทำ:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li><b>Duke (ดยุก):</b> เก็บภาษี 3 เหรียญ / บล็อก Foreign Aid</li>
+                <li><b>Assassin (นักฆ่า):</b> จ่าย 3 เหรียญเพื่อสังหารการ์ดผู้เล่นอื่น 1 ใบ</li>
+                <li><b>Captain (กัปตัน):</b> ขโมย 2 เหรียญจากผู้เล่นอื่น / บล็อกการขโมย</li>
+                <li><b>Ambassador (เอกอัครราชทูต):</b> สลับการ์ด 2 ใบจากกองกลาง / บล็อกการขโมย</li>
+                <li><b>Contessa (เคาน์เตส):</b> บล็อกการสังหารของ Assassin</li>
+              </ul>
+              <p><b>การท้าทาย (Challenge):</b> ผู้เล่นทุกคนสามารถบลัฟว่าตนถือการ์ดนั้นได้ แต่หากถูกท้าทายแล้วไม่มี จะต้องเปิดการ์ดทิ้ง 1 ใบ!</p>
+            </div>
+          `
+        },
+        'exploding-kittens': {
+          title: 'Exploding Kittens (เหมียวระเบิด)',
+          badge: 'KITTENS',
+          minPlayers: 2,
+          maxPlayers: 5,
+          summary: 'ผลัดกันเล่นการ์ดแกล้งกัน และจั่วการ์ดจากกอง หากใครจั่วเจอเหมียวระเบิดแล้วไม่มีการ์ดกู้ระเบิดจะระเบิดตกรอบ!',
+          rules: `
+            <div class="space-y-2">
+              <p><b>เป้าหมาย:</b> เอาชีวิตรอดโดยไม่จั่วโดน Exploding Kitten หรือต้องมี Defuse ไว้กู้ระเบิด!</p>
+              <p><b>การ์ดสำคัญ:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li><b>Defuse (กู้ระเบิด):</b> ช่วยให้รอดตายเมื่อจั่วโดนเหมียวระเบิด และนำระเบิดกลับเข้ากองซ่อนไว้ที่ใดก็ได้</li>
+                <li><b>Attack:</b> จบเทิร์นทันทีโดยไม่ต้องจั่วการ์ด และบังคับให้ผู้เล่นคนถัดไปเล่น 2 เทิร์นติดต่อกัน!</li>
+                <li><b>Skip:</b> จบเทิร์นทันทีโดยไม่ต้องจั่วการ์ด</li>
+                <li><b>See The Future:</b> แอบดูการ์ดบนสุดของกอง 3 ใบอย่างลับๆ</li>
+                <li><b>Shuffle:</b> สับกองการ์ดทั้งหมด</li>
+                <li><b>Favor:</b> บังคับให้ผู้เล่นที่เลือก มอบการ์ด 1 ใบให้เรา</li>
+              </ul>
+            </div>
+          `
+        },
+        'cabo': {
+          title: 'Cabo (คาโบ)',
+          badge: 'CABO',
+          minPlayers: 2,
+          maxPlayers: 4,
+          summary: 'ผสมผสานความจำและกลยุทธ์! ลดแต้มรวมไพ่ 4 ใบของตนเองให้น้อยที่สุด เมื่อมั่นใจให้ขาน "Cabo"',
+          rules: `
+            <div class="space-y-2">
+              <p><b>เป้าหมาย:</b> มีผลรวมคะแนนของการ์ด 4 ใบข้างหน้าน้อยที่สุดในบรรดาผู้เล่นทุกคน</p>
+              <p><b>วิธีเล่น:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li>ตอนเริ่มเกม ทุกคนจะได้ดูการ์ด 2 ใบแรกของตนเอง จากนั้นจะคว่ำไว้</li>
+                <li>ในแต่ละเทิร์น สามารถเลือกจั่วการ์ดจาก <b>กองจั่ว</b> หรือหยิบจาก <b>กองทิ้ง</b></li>
+                <li>หากจั่วจากกองจั่ว สามารถใช้ความสามารถพิเศษของการ์ดได้ (เลข 7-8: แอบดูการ์ดตนเอง, เลข 9-10: ส่องการ์ดฝ่ายตรงข้าม, เลข 11-12: สลับการ์ด)</li>
+                <li>หากมั่นใจว่าแต้มรวมน้อยที่สุด สามารถประกาศ <b>"Call Cabo"</b> เพื่อให้ทุกคนเล่นอีกคนละ 1 เทิร์นสุดท้ายก่อนเปิดการ์ดคิดคะแนน!</li>
+              </ul>
+            </div>
+          `
+        },
+        'werewolf': {
+          title: 'Werewolf / Mafia (มนุษย์หมาป่า)',
+          badge: 'WEREWOLF',
+          minPlayers: 4,
+          maxPlayers: 10,
+          summary: 'สลับกลางวัน-กลางคืน หมาป่าออกล่า ยามเช้าชาวบ้านถกเถียงและโหวตประหารคนน่าสงสัย!',
+          rules: `
+            <div class="space-y-2">
+              <p><b>ระบบบทบาทลับ:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li><b>Werewolf (หมาป่า):</b> ในเวลากลางคืน เลือกลอบสังหารชาวบ้าน 1 คน</li>
+                <li><b>Seer (ผู้หยั่งรู้):</b> ในเวลากลางคืน เลือกตรวจสอบผู้เล่น 1 คนว่าเป็นหมาป่าหรือไม่</li>
+                <li><b>Doctor (หมอ):</b> ในเวลากลางคืน เลือกปกป้องผู้เล่น 1 คนจากการถูกลอบสังหาร</li>
+                <li><b>Villager (ชาวบ้าน):</b> ไม่มีพลังพิเศษ แต่ใช้การสังเกตและลงคะแนนโหวตในเวลากลางวัน</li>
+              </ul>
+              <p><b>เงื่อนไขชนะ:</b> ชาวบ้านชนะเมื่อกำจัดหมาป่าได้หมด / หมาป่าชนะเมื่อจำนวนหมาป่าเท่ากับหรือมากกว่าชาวบ้าน</p>
+            </div>
+          `
+        },
+        'uno': {
+          title: 'UNO (อูโน่)',
+          badge: 'UNO',
+          minPlayers: 2,
+          maxPlayers: 6,
+          summary: 'ลงไพ่ตามสีหรือตัวเลข จัดการ์ดพิเศษ Draw Two, Reverse, Skip, Wild และพูด UNO เมื่อเหลือไพ่ใบเดียว!',
+          rules: `
+            <div class="space-y-2">
+              <p><b>เป้าหมาย:</b> ทิ้งการ์ดในมือให้หมดเป็นคนแรก</p>
+              <p><b>วิธีเล่น:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li>ลงการ์ดที่มีสีตรงกัน หรือตัวเลขตรงกับไพ่บนสุดของกองทิ้ง</li>
+                <li><b>Draw Two (+2):</b> ผู้เล่นคนถัดไปต้องจั่ว 2 ใบและข้ามเทิร์น</li>
+                <li><b>Reverse:</b> สลับทิศทางการวนเทิร์น</li>
+                <li><b>Skip:</b> ข้ามเทิร์นผู้เล่นคนถัดไป</li>
+                <li><b>Wild Card:</b> เปลี่ยนสีปัจจุบันเป็นสีใดก็ได้</li>
+                <li><b>Wild Draw Four (+4):</b> เปลี่ยนสีและบังคับผู้เล่นคนถัดไปจั่ว 4 ใบ</li>
+                <li>เมื่อเหลือการ์ดในมือใบเดียว ต้องกดปุ่ม <b>"UNO!"</b> มิฉะนั้นอาจโดนปรับจั่วการ์ด!</li>
+              </ul>
+            </div>
+          `
+        },
+        'insider': {
+          title: 'Insider (คนวงใน)',
+          badge: 'INSIDER',
+          minPlayers: 4,
+          maxPlayers: 8,
+          summary: 'ทายคำ 20 คำถาม โดยมีคนวงในแอบรู้คำลับและคอยช่วยชี้นำ หลังทายถูกทุกคนต้องโหวตหาว่าใครคือ Insider!',
+          rules: `
+            <div class="space-y-2">
+              <p><b>บทบาทในเกม:</b></p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li><b>Master (หัวหน้า):</b> รู้คำลับและตอบคำถามเพื่อนได้แค่ "ใช่", "ไม่ใช่", "ไม่เกี่ยว", "ไม่แน่ใจ"</li>
+                <li><b>Insider (คนวงใน):</b> แอบเห็นคำลับล่วงหน้า! ต้องเนียนช่วยถามคำถามนำทางเพื่อให้ชาวบ้านทายถูก แต่ต้องไม่ทำตัวเด่นจนถูกจับได้</li>
+                <li><b>Commons (ชาวบ้าน):</b> ยิงคำถามเพื่อทายคำลับให้ถูกภายในเวลาและจำนวนคำถาม</li>
+              </ul>
+              <p><b>การตัดสินแพ้ชนะ:</b> หากทายคำลับไม่ถูก = ทุกคนแพ้ / หากทายถูก ทุกคนจะโหวตหา Insider หากจับ Insider ได้ชาวบ้านชนะ หากจับไม่ได้ Insider ชนะ!</p>
+            </div>
+          `
+        }
+      },
+
+      init() {
+        const hash = window.location.hash;
+        if (hash && hash.includes('room=')) {
+          const code = hash.split('room=')[1].slice(0, 4).toUpperCase();
+          if (code) {
+            const joinInput = document.getElementById('input-join-code');
+            if (joinInput) joinInput.value = code;
+          }
+        }
+        lucide.createIcons();
+      },
+
+      generateRandomCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let res = '';
+        for (let i = 0; i < 4; i++) {
+          res += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return res;
+      },
+
+      showScreen(screenId) {
+        ['screen-home', 'screen-lobby', 'screen-game'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle('hidden', id !== screenId);
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        lucide.createIcons();
+      },
+
+      selectGameAndCreate(gameId) {
+        SoundFX.playClick();
+        this.selectedGameId = gameId;
+        const nameInput = document.getElementById('input-player-name');
+        if (nameInput && nameInput.value.trim()) {
+          this.myPlayerName = nameInput.value.trim();
+        }
+        this.hostQuickRoom();
+      },
+
+      hostQuickRoom() {
+        SoundFX.playClick();
+        const nameInput = document.getElementById('input-player-name');
+        if (nameInput && nameInput.value.trim()) {
+          this.myPlayerName = nameInput.value.trim();
+        }
+        
+        this.isHost = true;
+        this.roomCode = this.generateRandomCode();
+        this.myPlayerId = 'host_' + Math.random().toString(36).substring(2, 7);
+
+        this.players = [
+          { id: this.myPlayerId, name: this.myPlayerName, isHost: true, isBot: false, ready: true }
+        ];
+
+        Network.initHost(this.roomCode, (code) => {
+          this.updateLobbyUI();
+          this.showScreen('screen-lobby');
+          this.renderQRCode(code);
+        });
+
+        this.updateTopBar(this.roomCode);
+      },
+
+      joinRoomFromInput() {
+        SoundFX.playClick();
+        const codeInput = document.getElementById('input-join-code');
+        const nameInput = document.getElementById('input-player-name');
+        const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        const name = nameInput && nameInput.value.trim() ? nameInput.value.trim() : 'ผู้เล่นใหม่';
+
+        if (!code || code.length < 4) {
+          this.showToast('กรุณากรอกรหัสห้อง 4 หลักให้ถูกต้อง', 'error');
+          return;
+        }
+
+        this.isHost = false;
+        this.roomCode = code;
+        this.myPlayerName = name;
+
+        this.showToast('กำลังเชื่อมต่อเข้าห้อง ' + code + '...', 'info');
+
+        Network.joinRoom(code, name, () => {
+          this.myPlayerId = Network.myId;
+          this.showToast('เข้าร่วมห้องสำเร็จ!', 'success');
+          this.showScreen('screen-lobby');
+          this.updateTopBar(code);
+        }, (err) => {
+          this.showToast('ไม่พบห้องนี้ หรือการเชื่อมต่อล้มเหลว', 'error');
+        });
+      },
+
+      renderQRCode(roomCode) {
+        const container = document.getElementById('qrcode-container');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const joinUrl = `${window.location.origin}${window.location.pathname}#room=${roomCode}`;
+        new QRCode(container, {
+          text: joinUrl,
+          width: 140,
+          height: 140,
+          colorDark: "#1e1b4b",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      },
+
+      updateTopBar(roomCode) {
+        const badge = document.getElementById('top-room-badge');
+        const codeEl = document.getElementById('top-room-code');
+        if (badge && codeEl) {
+          badge.classList.remove('hidden');
+          codeEl.textContent = roomCode;
+        }
+      },
+
+      copyInviteLink() {
+        SoundFX.playClick();
+        const joinUrl = `${window.location.origin}${window.location.pathname}#room=${this.roomCode}`;
+        navigator.clipboard.writeText(joinUrl).then(() => {
+          this.showToast('คัดลอกลิงก์เชิญเพื่อนแล้ว!', 'success');
+        }).catch(() => {
+          prompt('คัดลอกลิงก์ด้านล่างเพื่อส่งให้เพื่อน:', joinUrl);
+        });
+      },
+
+      addTestBot() {
+        SoundFX.playClick();
+        if (!this.isHost) return;
+        const meta = this.gamesMetadata[this.selectedGameId];
+        if (this.players.length >= meta.maxPlayers) {
+          this.showToast(`เกมนี้รับได้สูงสุด ${meta.maxPlayers} คน`, 'error');
+          return;
+        }
+
+        const botNames = ['บอทสมศรี 🤖', 'บอทสมชาย 🤖', 'บอทเอไอ 🤖', 'บอทสายปั่น 🤖', 'บอทสายบลัฟ 🤖', 'บอทตัวตึง 🤖'];
+        const availableNames = botNames.filter(n => !this.players.some(p => p.name === n));
+        const botName = availableNames.length > 0 ? availableNames[0] : `บอท #${this.players.length + 1} 🤖`;
+
+        const botId = 'bot_' + Math.random().toString(36).substring(2, 7);
+        this.players.push({
+          id: botId,
+          name: botName,
+          isHost: false,
+          isBot: true,
+          ready: true
+        });
+
+        this.broadcastLobbyState();
+        this.updateLobbyUI();
+      },
+
+      removePlayer(playerId) {
+        SoundFX.playClick();
+        if (!this.isHost) return;
+        this.players = this.players.filter(p => p.id !== playerId);
+        this.broadcastLobbyState();
+        this.updateLobbyUI();
+      },
+
+      updateLobbyUI() {
+        const meta = this.gamesMetadata[this.selectedGameId];
+        document.getElementById('lobby-game-title').textContent = meta.title;
+        document.getElementById('lobby-player-count-range').textContent = `${meta.minPlayers}–${meta.maxPlayers} คน`;
+        document.getElementById('lobby-room-code').textContent = this.roomCode;
+        document.getElementById('lobby-player-count').textContent = this.players.length;
+        
+        const grid = document.getElementById('lobby-players-grid');
+        grid.innerHTML = '';
+        this.players.forEach((p, idx) => {
+          const isMe = p.id === this.myPlayerId;
+          const card = document.createElement('div');
+          card.className = `flex items-center justify-between p-3 rounded-xl border ${isMe ? 'bg-purple-950/40 border-purple-500/50' : 'bg-slate-900/80 border-slate-800'}`;
+          card.innerHTML = `
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full ${p.isBot ? 'bg-amber-500/20 text-amber-300' : 'bg-purple-500/20 text-purple-300'} flex items-center justify-center font-bold text-xs">
+                ${p.isBot ? '🤖' : (idx + 1)}
+              </div>
+              <div>
+                <span class="text-sm font-semibold text-white flex items-center gap-1.5">
+                  ${p.name}
+                  ${p.isHost ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-normal">Host</span>' : ''}
+                  ${isMe ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-normal">คุณ</span>' : ''}
+                </span>
+                <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> พร้อมเล่น
+                </span>
+              </div>
+            </div>
+            ${this.isHost && !p.isHost ? `
+              <button onclick="App.removePlayer('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1 rounded-lg">
+                <i data-lucide="user-x" class="w-4 h-4"></i>
+              </button>
+            ` : ''}
+          `;
+          grid.appendChild(card);
+        });
+
+        const startBtn = document.getElementById('btn-start-game');
+        if (startBtn) {
+          if (!this.isHost) {
+            startBtn.classList.add('hidden');
+          } else {
+            startBtn.classList.remove('hidden');
+            const canStart = this.players.length >= meta.minPlayers && this.players.length <= meta.maxPlayers;
+            startBtn.disabled = !canStart;
+            startBtn.title = canStart ? 'เริ่มเล่นทันที' : `ต้องการผู้เล่น ${meta.minPlayers}–${meta.maxPlayers} คน`;
+          }
+        }
+        lucide.createIcons();
+      },
+
+      setDisplayMode(mode) {
+        SoundFX.playClick();
+        this.displayMode = mode;
+        const btnHandheld = document.getElementById('btn-mode-handheld');
+        const btnTabletop = document.getElementById('btn-mode-tabletop');
+        if (mode === 'handheld') {
+          btnHandheld.className = 'px-3 py-1 text-xs font-medium rounded-lg bg-purple-600 text-white transition';
+          btnTabletop.className = 'px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+        } else {
+          btnTabletop.className = 'px-3 py-1 text-xs font-medium rounded-lg bg-purple-600 text-white transition';
+          btnHandheld.className = 'px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+        }
+      },
+
+      startGame() {
+        SoundFX.playClick();
+        if (!this.isHost) return;
+
+        const meta = this.gamesMetadata[this.selectedGameId];
+        if (this.players.length < meta.minPlayers) {
+          this.showToast(`ต้องมีผู้เล่นอย่างน้อย ${meta.minPlayers} คน (กดเพิ่มบอทได้)`, 'error');
+          return;
+        }
+
+        this.initGameEngine(this.selectedGameId);
+      },
+
+      initGameEngine(gameId) {
+        switch(gameId) {
+          case 'coup': this.gameEngine = new CoupEngine(this.players); break;
+          case 'exploding-kittens': this.gameEngine = new ExplodingKittensEngine(this.players); break;
+          case 'cabo': this.gameEngine = new CaboEngine(this.players); break;
+          case 'werewolf': this.gameEngine = new WerewolfEngine(this.players); break;
+          case 'uno': this.gameEngine = new UnoEngine(this.players); break;
+          case 'insider': this.gameEngine = new InsiderEngine(this.players); break;
+        }
+
+        this.gameEngine.start();
+        this.broadcastGameState();
+        this.showScreen('screen-game');
+        this.renderGame();
+        SoundFX.playTurn();
+      },
+
+      renderGame() {
+        if (!this.gameEngine) return;
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) {
+          canvas.innerHTML = this.gameEngine.renderHTML(this.myPlayerId, this.displayMode);
+          lucide.createIcons();
+        }
+        
+        const meta = this.gamesMetadata[this.selectedGameId];
+        document.getElementById('game-badge').textContent = meta.badge;
+        const currentTurnName = this.gameEngine.getCurrentTurnPlayerName();
+        document.getElementById('game-current-turn-player').textContent = currentTurnName || 'ทุกคน';
+        document.getElementById('game-phase-text').textContent = this.gameEngine.getPhaseDescription();
+      },
+
+      onPlayerDisconnected(peerId) {
+        this.players = this.players.filter(p => p.id !== peerId);
+        this.updateLobbyUI();
+        this.showToast('ผู้เล่นคนหนึ่งตัดการเชื่อมต่อ', 'info');
+      },
+
+      broadcastLobbyState() {
+        if (!this.isHost) return;
+        Network.broadcast({
+          type: 'LOBBY_STATE',
+          selectedGameId: this.selectedGameId,
+          roomCode: this.roomCode,
+          players: this.players
+        });
+      },
+
+      broadcastGameState() {
+        if (!this.isHost || !this.gameEngine) return;
+        this.players.forEach(player => {
+          if (!player.isBot && player.id !== this.myPlayerId) {
+            const clientState = this.gameEngine.getClientState(player.id);
+            Network.sendTo(player.id, {
+              type: 'GAME_STATE_UPDATE',
+              state: clientState
+            });
+          }
+        });
+        this.renderGame();
+      },
+
+      onMessageFromClient(fromPeerId, data) {
+        if (!this.isHost) return;
+        if (data.type === 'JOIN') {
+          if (!this.players.some(p => p.id === data.playerId)) {
+            this.players.push({
+              id: data.playerId,
+              name: data.name || 'ผู้เล่น',
+              isHost: false,
+              isBot: false,
+              ready: true
+            });
+            this.broadcastLobbyState();
+            this.updateLobbyUI();
+            SoundFX.playClick();
+          }
+        } else if (data.type === 'GAME_ACTION') {
+          if (this.gameEngine) {
+            this.gameEngine.handleAction(fromPeerId, data.action, data.payload);
+            this.broadcastGameState();
+          }
+        }
+      },
+
+      onMessageFromHost(data) {
+        if (data.type === 'LOBBY_STATE') {
+          this.selectedGameId = data.selectedGameId;
+          this.roomCode = data.roomCode;
+          this.players = data.players;
+          this.updateLobbyUI();
+        } else if (data.type === 'GAME_STATE_UPDATE') {
+          if (!this.gameEngine) {
+            this.instantiateClientEngine(this.selectedGameId);
+          }
+          this.gameEngine.applyClientState(data.state);
+          this.showScreen('screen-game');
+          this.renderGame();
+        } else if (data.type === 'GAME_OVER') {
+          this.showVictoryModal(data.winnerName, data.summary);
+        }
+      },
+
+      sendAction(action, payload = {}) {
+        SoundFX.playClick();
+        if (this.isHost) {
+          if (this.gameEngine) {
+            this.gameEngine.handleAction(this.myPlayerId, action, payload);
+            this.broadcastGameState();
+          }
+        } else {
+          Network.sendToHost({
+            type: 'GAME_ACTION',
+            action: action,
+            payload: payload
+          });
+        }
+      },
+
+      instantiateClientEngine(gameId) {
+        switch(gameId) {
+          case 'coup': this.gameEngine = new CoupEngine(this.players); break;
+          case 'exploding-kittens': this.gameEngine = new ExplodingKittensEngine(this.players); break;
+          case 'cabo': this.gameEngine = new CaboEngine(this.players); break;
+          case 'werewolf': this.gameEngine = new WerewolfEngine(this.players); break;
+          case 'uno': this.gameEngine = new UnoEngine(this.players); break;
+          case 'insider': this.gameEngine = new InsiderEngine(this.players); break;
+        }
+      },
+
+      showToast(msg, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0 ${
+          type === 'error' ? 'bg-rose-600 text-white' :
+          type === 'success' ? 'bg-emerald-600 text-white' :
+          'bg-slate-800 text-slate-100 border border-slate-700'
+        }`;
+        toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : type === 'success' ? 'check-circle' : 'info'}" class="w-4 h-4"></i> ${msg}`;
+        document.body.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 10);
+        setTimeout(() => {
+          toast.classList.add('translate-y-2', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      },
+
+      showGlobalHelp() {
+        SoundFX.playClick();
+        const meta = this.gamesMetadata[this.selectedGameId];
+        document.getElementById('rules-modal-title').innerHTML = `<i data-lucide="book-open" class="w-5 h-5 text-purple-400"></i> ${meta.title} — กติกาการเล่น`;
+        document.getElementById('rules-modal-content').innerHTML = meta.rules;
+        document.getElementById('modal-rules').classList.remove('hidden');
+        lucide.createIcons();
+      },
+
+      toggleGameLog() {
+        SoundFX.playClick();
+        const drawer = document.getElementById('drawer-game-log');
+        drawer.classList.toggle('translate-y-full');
+      },
+
+      addLog(msg) {
+        this.gameLog.unshift({ time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), msg });
+        const container = document.getElementById('game-log-entries');
+        if (container) {
+          container.innerHTML = this.gameLog.map(l => `<div class="py-1 border-b border-slate-800/60"><span class="text-slate-500 font-mono text-[10px]">[${l.time}]</span> ${l.msg}</div>`).join('');
+        }
+      },
+
+      showVictoryModal(winnerName, summary) {
+        SoundFX.playWin();
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        document.getElementById('victory-winner-name').textContent = winnerName;
+        document.getElementById('victory-summary').textContent = summary || 'จบเกมแล้ว!';
+        document.getElementById('modal-victory').classList.remove('hidden');
+      },
+
+      playAgain() {
+        document.getElementById('modal-victory').classList.add('hidden');
+        if (this.isHost) {
+          this.initGameEngine(this.selectedGameId);
+        }
+      },
+
+      backToLobby() {
+        document.getElementById('modal-victory').classList.add('hidden');
+        this.showScreen('screen-lobby');
+      },
+
+      leaveRoom() {
+        if (confirm('คุณต้องการออกจากห้องนี้ใช่หรือไม่?')) {
+          Network.cleanup();
+          this.roomCode = '';
+          document.getElementById('top-room-badge').classList.add('hidden');
+          this.showScreen('screen-home');
+        }
+      },
+
+      restartGamePrompt() {
+        if (!this.isHost) {
+          this.showToast('เฉพาะ Host เท่านั้นที่สามารถรีเซ็ตเกมได้', 'info');
+          return;
+        }
+        if (confirm('เริ่มเกมใหม่ทันทีหรือไม่?')) {
+          this.initGameEngine(this.selectedGameId);
+        }
+      }
+    };
+    /* =========================================================
+       4. GAME ENGINE 1: COUP (เกมโค่นอำนาจ)
+       ========================================================= */
+    class CoupEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          coins: 2,
+          cards: [],
+          eliminatedCards: [],
+          alive: true
+        }));
+        this.currentTurnIdx = 0;
+        this.courtDeck = [];
+        this.phase = 'ACTION';
+        this.pendingAction = null;
+        this.winner = null;
+      }
+
+      start() {
+        const roles = ['Duke', 'Assassin', 'Captain', 'Ambassador', 'Contessa'];
+        this.courtDeck = [];
+        roles.forEach(role => {
+          for (let i = 0; i < 3; i++) this.courtDeck.push(role);
+        });
+        for (let i = this.courtDeck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [this.courtDeck[i], this.courtDeck[j]] = [this.courtDeck[j], this.courtDeck[i]];
+        }
+
+        this.players.forEach(p => {
+          p.cards = [this.courtDeck.pop(), this.courtDeck.pop()];
+          p.coins = 2;
+          p.alive = true;
+          p.eliminatedCards = [];
+        });
+
+        this.currentTurnIdx = 0;
+        this.phase = 'ACTION';
+        App.addLog(`เริ่มเกม Coup! เทิร์นแรกของ ${this.getCurrentTurnPlayer().name}`);
+        this.checkBotTurn();
+      }
+
+      getCurrentTurnPlayer() {
+        return this.players[this.currentTurnIdx];
+      }
+
+      getCurrentTurnPlayerName() {
+        const p = this.getCurrentTurnPlayer();
+        return p ? p.name : '';
+      }
+
+      getPhaseDescription() {
+        if (this.phase === 'ACTION') return 'กำลังเลือก Action';
+        if (this.phase === 'REACTION') return 'รอการท้าทาย / บล็อก';
+        if (this.phase === 'LOSE_INFLUENCE') return 'เลือกการ์ดที่ถูกกำจัด';
+        return 'กำลังประมวลผล';
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player || !player.alive) return;
+
+        if (this.phase === 'ACTION' && this.players[this.currentTurnIdx].id === playerId) {
+          this.executeTurnAction(player, action, payload);
+        } else if (this.phase === 'REACTION') {
+          this.executeReaction(player, action, payload);
+        } else if (this.phase === 'LOSE_INFLUENCE' && this.pendingLossPlayerId === playerId) {
+          this.executeLoseInfluence(player, payload.cardIndex);
+        }
+      }
+
+      executeTurnAction(player, action, payload) {
+        if (player.coins >= 10 && action !== 'coup') {
+          App.showToast('คุณมีเหรียญ 10 เหรียญขึ้นไป ต้องทำ Coup ทันที!', 'error');
+          return;
+        }
+
+        if (action === 'income') {
+          player.coins += 1;
+          App.addLog(`${player.name} ขอรับ Income (+1 เหรียญ)`);
+          this.nextTurn();
+        } else if (action === 'foreign_aid') {
+          this.pendingAction = { type: 'foreign_aid', actor: player, claimRole: null, target: null };
+          this.triggerReactionPhase(`${player.name} ขอรับ Foreign Aid (+2 เหรียญ)`, ['block_duke', 'pass']);
+        } else if (action === 'tax') {
+          this.pendingAction = { type: 'tax', actor: player, claimRole: 'Duke', target: null };
+          this.triggerReactionPhase(`${player.name} อ้างเป็น Duke เก็บ Tax (+3 เหรียญ)`, ['challenge', 'pass']);
+        } else if (action === 'coup') {
+          if (player.coins < 7) {
+            App.showToast('ต้องมีอย่างน้อย 7 เหรียญเพื่อทำ Coup', 'error');
+            return;
+          }
+          const target = this.players.find(p => p.id === payload.targetId);
+          if (!target || !target.alive) return;
+          player.coins -= 7;
+          App.addLog(`${player.name} สั่ง Coup รัฐประหารใส่ ${target.name}!`);
+          this.demandLoseInfluence(target);
+        } else if (action === 'assassinate') {
+          if (player.coins < 3) {
+            App.showToast('ต้องมี 3 เหรียญเพื่อจ้าง Assassin', 'error');
+            return;
+          }
+          const target = this.players.find(p => p.id === payload.targetId);
+          if (!target || !target.alive) return;
+          player.coins -= 3;
+          this.pendingAction = { type: 'assassinate', actor: player, claimRole: 'Assassin', target: target };
+          this.triggerReactionPhase(`${player.name} อ้างเป็น Assassin สั่งฆ่า ${target.name}!`, ['challenge', 'block_contessa', 'pass']);
+        } else if (action === 'steal') {
+          const target = this.players.find(p => p.id === payload.targetId);
+          if (!target || !target.alive || target.coins <= 0) {
+            App.showToast('เป้าหมายไม่มีเหรียญให้ขโมย', 'error');
+            return;
+          }
+          this.pendingAction = { type: 'steal', actor: player, claimRole: 'Captain', target: target };
+          this.triggerReactionPhase(`${player.name} อ้างเป็น Captain ขอขโมย 2 เหรียญจาก ${target.name}`, ['challenge', 'block_captain', 'block_ambassador', 'pass']);
+        } else if (action === 'exchange') {
+          this.pendingAction = { type: 'exchange', actor: player, claimRole: 'Ambassador', target: null };
+          this.triggerReactionPhase(`${player.name} อ้างเป็น Ambassador ขอสลับการ์ด 2 ใบ`, ['challenge', 'pass']);
+        }
+      }
+
+      triggerReactionPhase(desc, availableButtons) {
+        this.phase = 'REACTION';
+        this.reactionPassed = new Set();
+        App.addLog(`[การตอบสนอง] ${desc}`);
+        
+        const modal = document.getElementById('modal-reaction');
+        if (modal) {
+          modal.classList.remove('hidden');
+          document.getElementById('modal-reaction-desc').textContent = desc;
+          const container = document.getElementById('reaction-buttons-container');
+          container.innerHTML = '';
+          
+          availableButtons.forEach(btnType => {
+            const btn = document.createElement('button');
+            btn.className = 'py-2.5 px-3 rounded-xl text-xs font-bold transition ' + (
+              btnType === 'challenge' ? 'bg-rose-600 hover:bg-rose-500 text-white' :
+              btnType.startsWith('block') ? 'bg-amber-600 hover:bg-amber-500 text-white' :
+              'bg-slate-700 hover:bg-slate-600 text-slate-200'
+            );
+            btn.textContent = (
+              btnType === 'challenge' ? '⚔️ ท้าทาย (Challenge)' :
+              btnType === 'block_duke' ? '🛡️ บล็อก (Duke)' :
+              btnType === 'block_contessa' ? '🛡️ บล็อก (Contessa)' :
+              btnType === 'block_captain' ? '🛡️ บล็อก (Captain)' :
+              btnType === 'block_ambassador' ? '🛡️ บล็อก (Ambassador)' :
+              'ผ่าน (Pass)'
+            );
+            btn.onclick = () => {
+              App.sendAction('reaction', { reactionType: btnType });
+            };
+            container.appendChild(btn);
+          });
+        }
+
+        setTimeout(() => this.simulateBotReactions(), 1200);
+      }
+
+      simulateBotReactions() {
+        if (this.phase !== 'REACTION') return;
+        this.resolveActionSuccessfully();
+      }
+
+      executeReaction(reactor, action, payload) {
+        const reactionType = payload.reactionType;
+        if (reactionType === 'pass') {
+          this.reactionPassed.add(reactor.id);
+          if (this.reactionPassed.size >= this.players.filter(p => p.alive && p.id !== this.pendingAction.actor.id).length) {
+            this.resolveActionSuccessfully();
+          }
+          return;
+        }
+
+        if (reactionType === 'challenge') {
+          const actor = this.pendingAction.actor;
+          const claimedRole = this.pendingAction.claimRole;
+          const hasRole = actor.cards.includes(claimedRole);
+          
+          document.getElementById('modal-reaction').classList.add('hidden');
+          if (hasRole) {
+            App.addLog(`การท้าทายล้มเหลว! ${actor.name} มีการ์ด ${claimedRole} จริง!`);
+            const idx = actor.cards.indexOf(claimedRole);
+            actor.cards.splice(idx, 1);
+            this.courtDeck.push(claimedRole);
+            this.courtDeck.sort(() => Math.random() - 0.5);
+            actor.cards.push(this.courtDeck.pop());
+            this.demandLoseInfluence(reactor);
+            this.resolveActionSuccessfully(true);
+          } else {
+            App.addLog(`การท้าทายสำเร็จ! ${actor.name} บลัฟว่ามี ${claimedRole}!`);
+            this.demandLoseInfluence(actor);
+            this.nextTurn();
+          }
+        } else if (reactionType.startsWith('block')) {
+          App.addLog(`${reactor.name} ประกาศบล็อก Action ด้วยสิทธิ์การ์ด!`);
+          document.getElementById('modal-reaction').classList.add('hidden');
+          this.nextTurn();
+        }
+      }
+
+      resolveActionSuccessfully(skipTurnChange = false) {
+        document.getElementById('modal-reaction').classList.add('hidden');
+        const action = this.pendingAction;
+        if (!action) return;
+
+        if (action.type === 'foreign_aid') {
+          action.actor.coins += 2;
+          App.addLog(`${action.actor.name} ได้รับ Foreign Aid 2 เหรียญ`);
+        } else if (action.type === 'tax') {
+          action.actor.coins += 3;
+          App.addLog(`${action.actor.name} ได้รับ Tax 3 เหรียญ`);
+        } else if (action.type === 'steal') {
+          const stolen = Math.min(2, action.target.coins);
+          action.target.coins -= stolen;
+          action.actor.coins += stolen;
+          App.addLog(`${action.actor.name} ขโมย ${stolen} เหรียญจาก ${action.target.name}`);
+        } else if (action.type === 'assassinate') {
+          this.demandLoseInfluence(action.target);
+          return;
+        } else if (action.type === 'exchange') {
+          const extra = [this.courtDeck.pop(), this.courtDeck.pop()].filter(Boolean);
+          action.actor.cards.push(...extra);
+          App.addLog(`${action.actor.name} สลับการ์ดกับกองกลางเรียบร้อย`);
+        }
+
+        if (!skipTurnChange) this.nextTurn();
+      }
+
+      demandLoseInfluence(player) {
+        if (player.cards.length <= 1) {
+          const lost = player.cards.pop();
+          player.eliminatedCards.push(lost);
+          player.alive = false;
+          App.addLog(`💀 ${player.name} เสียการ์ดใบสุดท้าย (${lost}) และตกรอบ!`);
+          this.checkWinCondition();
+          this.nextTurn();
+        } else {
+          this.phase = 'LOSE_INFLUENCE';
+          this.pendingLossPlayerId = player.id;
+          App.addLog(`${player.name} ต้องเลือกเปิดการ์ดทิ้ง 1 ใบ`);
+          if (player.isBot) {
+            setTimeout(() => {
+              const lost = player.cards.shift();
+              player.eliminatedCards.push(lost);
+              this.phase = 'ACTION';
+              App.addLog(`${player.name} เปิดการ์ด ${lost} ทิ้ง`);
+              this.checkWinCondition();
+              this.nextTurn();
+            }, 1000);
+          }
+        }
+      }
+
+      executeLoseInfluence(player, cardIndex) {
+        const lost = player.cards.splice(cardIndex, 1)[0];
+        player.eliminatedCards.push(lost);
+        App.addLog(`${player.name} ทิ้งการ์ด ${lost}`);
+        this.phase = 'ACTION';
+        this.checkWinCondition();
+        this.nextTurn();
+      }
+
+      nextTurn() {
+        this.checkWinCondition();
+        if (this.winner) return;
+
+        let tries = 0;
+        do {
+          this.currentTurnIdx = (this.currentTurnIdx + 1) % this.players.length;
+          tries++;
+        } while (!this.players[this.currentTurnIdx].alive && tries < this.players.length);
+
+        this.phase = 'ACTION';
+        this.pendingAction = null;
+        SoundFX.playTurn();
+        App.addLog(`👉 เทิร์นของ ${this.getCurrentTurnPlayer().name}`);
+        this.checkBotTurn();
+      }
+
+      checkWinCondition() {
+        const alivePlayers = this.players.filter(p => p.alive);
+        if (alivePlayers.length === 1) {
+          this.winner = alivePlayers[0];
+          App.showVictoryModal(this.winner.name, `${this.winner.name} โค่นอำนาจทุกคนและชนะเกม Coup!`);
+        }
+      }
+
+      checkBotTurn() {
+        const current = this.getCurrentTurnPlayer();
+        if (current && current.isBot && current.alive) {
+          setTimeout(() => {
+            if (current.coins >= 10) {
+              const enemies = this.players.filter(p => p.alive && p.id !== current.id);
+              const target = enemies[Math.floor(Math.random() * enemies.length)];
+              this.handleAction(current.id, 'coup', { targetId: target.id });
+            } else if (current.coins >= 7 && Math.random() > 0.4) {
+              const enemies = this.players.filter(p => p.alive && p.id !== current.id);
+              const target = enemies[Math.floor(Math.random() * enemies.length)];
+              this.handleAction(current.id, 'coup', { targetId: target.id });
+            } else {
+              const acts = ['income', 'foreign_aid', 'tax'];
+              const act = acts[Math.floor(Math.random() * acts.length)];
+              this.handleAction(current.id, act, {});
+            }
+          }, 1400);
+        }
+      }
+
+      getClientState(forPlayerId) {
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            coins: p.coins,
+            cardCount: p.cards.length,
+            eliminatedCards: p.eliminatedCards,
+            alive: p.alive,
+            cards: (p.id === forPlayerId ? p.cards : null)
+          })),
+          currentTurnIdx: this.currentTurnIdx,
+          phase: this.phase,
+          deckCount: this.courtDeck.length
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.currentTurnIdx = state.currentTurnIdx;
+        this.phase = state.phase;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+        const isMyTurn = this.players[this.currentTurnIdx].id === myPlayerId;
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Other Players Arena -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              ${this.players.filter(p => p.id !== me.id).map(p => `
+                <div class="bg-slate-900/80 border ${this.players[this.currentTurnIdx].id === p.id ? 'border-rose-500 ring-2 ring-rose-500/30' : 'border-slate-800'} rounded-2xl p-3 flex flex-col justify-between relative overflow-hidden ${!p.alive ? 'opacity-40 grayscale' : ''}">
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-white truncate">${p.name}</span>
+                      <span class="text-[11px] font-mono text-amber-300 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">🪙 ${p.coins}</span>
+                    </div>
+                    <div class="mt-2 flex gap-1">
+                      ${Array.from({ length: p.cardCount || p.cards.length }).map(() => `
+                        <div class="w-7 h-10 rounded bg-gradient-to-tr from-rose-950 to-slate-800 border border-rose-500/40 flex items-center justify-center text-[10px]">🎴</div>
+                      `).join('')}
+                    </div>
+                  </div>
+                  ${p.eliminatedCards.length > 0 ? `
+                    <div class="mt-2 pt-1 border-t border-slate-800/80 text-[10px] text-slate-400">
+                      เปิดแล้ว: ${p.eliminatedCards.join(', ')}
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Court Treasury & Center Display -->
+            <div class="my-auto flex flex-col items-center justify-center text-center p-4 bg-slate-900/40 border border-slate-800/60 rounded-3xl max-w-md mx-auto w-full">
+              <span class="text-xs font-bold uppercase tracking-wider text-rose-400 mb-1">คลังหลวง (Treasury)</span>
+              <div class="flex items-center gap-6">
+                <div>
+                  <span class="text-3xl font-black text-amber-400">🪙 ${this.players.reduce((acc, p) => acc + p.coins, 0)}</span>
+                  <span class="text-[10px] text-slate-400 block">เหรียญหมุนเวียน</span>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <span class="text-3xl font-black text-slate-300">🎴 ${this.courtDeck ? this.courtDeck.length : 15}</span>
+                  <span class="text-[10px] text-slate-400 block">กองการ์ดอิทธิพล</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- My Hand & Private Controller -->
+            <div class="mt-4 bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold text-sm">
+                    ${me.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                      ${me.name} (คุณ)
+                      ${isMyTurn ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">เทิร์นของคุณ!</span>' : ''}
+                    </h4>
+                    <span class="text-xs text-amber-400 font-bold">🪙 มี ${me.coins} เหรียญ</span>
+                  </div>
+                </div>
+                
+                <div class="flex gap-2">
+                  ${me.cards.map((card, idx) => `
+                    <div class="px-3 py-1.5 rounded-xl bg-gradient-to-b from-rose-900/50 to-slate-900 border border-rose-500/60 shadow-lg text-xs font-bold text-rose-200 flex items-center gap-1.5">
+                      <span>👑</span> ${card}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <!-- Actions Controls -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                <button onclick="App.sendAction('income')" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  🪙 Income (+1)
+                </button>
+                <button onclick="App.sendAction('foreign_aid')" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  🤝 Foreign Aid (+2)
+                </button>
+                <button onclick="App.sendAction('tax')" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-500/40 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  👑 Tax (+3, Duke)
+                </button>
+                <button onclick="App.promptCoupTarget()" ${!isMyTurn || me.coins < 7 || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition shadow-lg shadow-rose-600/30">
+                  ⚔️ Coup (7 เหรียญ)
+                </button>
+                <button onclick="App.promptAssassinateTarget()" ${!isMyTurn || me.coins < 3 || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  🗡️ Assassinate (3)
+                </button>
+                <button onclick="App.promptStealTarget()" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  💰 Steal (Captain)
+                </button>
+                <button onclick="App.sendAction('exchange')" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  📜 Exchange (Amb.)
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    App.promptCoupTarget = function() {
+      const enemies = this.gameEngine.players.filter(p => p.alive && p.id !== this.myPlayerId);
+      const targetName = prompt('เลือกเป้าหมายที่จะ Coup รัฐประหาร:\n' + enemies.map((p, i) => `${i + 1}. ${p.name}`).join('\n'));
+      const idx = parseInt(targetName) - 1;
+      if (!isNaN(idx) && enemies[idx]) {
+        this.sendAction('coup', { targetId: enemies[idx].id });
+      }
+    };
+
+    App.promptAssassinateTarget = function() {
+      const enemies = this.gameEngine.players.filter(p => p.alive && p.id !== this.myPlayerId);
+      const targetName = prompt('เลือกเป้าหมายที่จะลอบสังหาร (Assassin):\n' + enemies.map((p, i) => `${i + 1}. ${p.name}`).join('\n'));
+      const idx = parseInt(targetName) - 1;
+      if (!isNaN(idx) && enemies[idx]) {
+        this.sendAction('assassinate', { targetId: enemies[idx].id });
+      }
+    };
+
+    App.promptStealTarget = function() {
+      const enemies = this.gameEngine.players.filter(p => p.alive && p.id !== this.myPlayerId && p.coins > 0);
+      if (enemies.length === 0) {
+        App.showToast('ไม่มีใครมีเหรียญให้ขโมย', 'error');
+        return;
+      }
+      const targetName = prompt('เลือกเป้าหมายที่จะขโมยเหรียญ (Captain):\n' + enemies.map((p, i) => `${i + 1}. ${p.name} (${p.coins} เหรียญ)`).join('\n'));
+      const idx = parseInt(targetName) - 1;
+      if (!isNaN(idx) && enemies[idx]) {
+        this.sendAction('steal', { targetId: enemies[idx].id });
+      }
+    };
+
+    /* =========================================================
+       5. GAME ENGINE 2: EXPLODING KITTENS (เหมียวระเบิด)
+       ========================================================= */
+    class ExplodingKittensEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          hand: [],
+          alive: true
+        }));
+        this.deck = [];
+        this.discardPile = [];
+        this.currentTurnIdx = 0;
+        this.turnsLeftForPlayer = 1;
+        this.winner = null;
+      }
+
+      start() {
+        const actionCards = [
+          ...Array(4).fill('Attack'),
+          ...Array(4).fill('Skip'),
+          ...Array(4).fill('Favor'),
+          ...Array(4).fill('Shuffle'),
+          ...Array(5).fill('See The Future'),
+          ...Array(4).fill('Nope'),
+          ...Array(4).fill('Taco Cat'),
+          ...Array(4).fill('Watermelon Cat')
+        ];
+        actionCards.sort(() => Math.random() - 0.5);
+
+        this.players.forEach(p => {
+          p.hand = ['Defuse'];
+          for (let i = 0; i < 4; i++) p.hand.push(actionCards.pop());
+          p.alive = true;
+        });
+
+        const kittenCount = this.players.length - 1;
+        const deckRest = [
+          ...actionCards,
+          ...Array(kittenCount).fill('Exploding Kitten'),
+          ...Array(2).fill('Defuse')
+        ];
+        deckRest.sort(() => Math.random() - 0.5);
+        this.deck = deckRest;
+
+        this.currentTurnIdx = 0;
+        this.turnsLeftForPlayer = 1;
+        App.addLog(`เริ่มเกม Exploding Kittens! มีลูกแมวระเบิด ${kittenCount} ตัวในกอง`);
+        this.checkBotTurn();
+      }
+
+      getCurrentTurnPlayer() {
+        return this.players[this.currentTurnIdx];
+      }
+
+      getCurrentTurnPlayerName() {
+        const p = this.getCurrentTurnPlayer();
+        return p ? p.name : '';
+      }
+
+      getPhaseDescription() {
+        return `กองการ์ดเหลือ ${this.deck.length} ใบ • ต้องเล่นอีก ${this.turnsLeftForPlayer} เทิร์น`;
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player || !player.alive || this.players[this.currentTurnIdx].id !== playerId) return;
+
+        if (action === 'draw') {
+          this.executeDraw(player);
+        } else if (action === 'play_card') {
+          this.executePlayCard(player, payload.cardIndex, payload.targetPlayerId);
+        }
+      }
+
+      executePlayCard(player, cardIndex, targetPlayerId) {
+        const card = player.hand.splice(cardIndex, 1)[0];
+        this.discardPile.push(card);
+        SoundFX.playCard();
+        App.addLog(`${player.name} เล่นการ์ด [${card}]`);
+
+        if (card === 'Attack') {
+          this.turnsLeftForPlayer = 0;
+          this.nextTurn(2);
+        } else if (card === 'Skip') {
+          this.turnsLeftForPlayer--;
+          if (this.turnsLeftForPlayer <= 0) {
+            this.nextTurn(1);
+          }
+        } else if (card === 'Shuffle') {
+          this.deck.sort(() => Math.random() - 0.5);
+          App.addLog(`🔀 ${player.name} สับกองการ์ดใหม่`);
+        } else if (card === 'See The Future') {
+          const top3 = this.deck.slice(-3).reverse();
+          if (player.id === App.myPlayerId) {
+            alert(`🔮 3 ใบบนสุดของกองการ์ดคือ:\n${top3.join('\n')}`);
+          }
+          App.addLog(`🔮 ${player.name} แอบดู 3 ใบบนสุด`);
+        } else if (card === 'Favor') {
+          const target = this.players.find(p => p.id === targetPlayerId && p.alive && p.id !== player.id);
+          if (target && target.hand.length > 0) {
+            const given = target.hand.pop();
+            player.hand.push(given);
+            App.addLog(`🎁 ${target.name} มอบการ์ด 1 ใบให้ ${player.name}`);
+          }
+        }
+      }
+
+      executeDraw(player) {
+        if (this.deck.length === 0) return;
+        const drawn = this.deck.pop();
+        SoundFX.playCard();
+
+        if (drawn === 'Exploding Kitten') {
+          SoundFX.playExplosion();
+          App.addLog(`💥 บึ้มมมม! ${player.name} จั่วได้ [Exploding Kitten]!`);
+          const defuseIdx = player.hand.indexOf('Defuse');
+          if (defuseIdx !== -1) {
+            player.hand.splice(defuseIdx, 1);
+            this.discardPile.push('Defuse');
+            const insertPos = Math.floor(Math.random() * (this.deck.length + 1));
+            this.deck.splice(insertPos, 0, 'Exploding Kitten');
+            App.addLog(`🛠️ ${player.name} ใช้ Defuse กู้ระเบิดสำเร็จ และแอบใส่ระเบิดกลับเข้ากอง!`);
+            this.advanceTurnStep();
+          } else {
+            player.alive = false;
+            App.addLog(`💀 ${player.name} ไม่มี Defuse ระเบิดตกรอบทันที!`);
+            this.checkWinCondition();
+            this.nextTurn(1);
+          }
+        } else {
+          player.hand.push(drawn);
+          App.addLog(`${player.name} จั่วการ์ด 1 ใบ`);
+          this.advanceTurnStep();
+        }
+      }
+
+      advanceTurnStep() {
+        this.turnsLeftForPlayer--;
+        if (this.turnsLeftForPlayer <= 0) {
+          this.nextTurn(1);
+        }
+      }
+
+      nextTurn(turns = 1) {
+        this.checkWinCondition();
+        if (this.winner) return;
+
+        let tries = 0;
+        do {
+          this.currentTurnIdx = (this.currentTurnIdx + 1) % this.players.length;
+          tries++;
+        } while (!this.players[this.currentTurnIdx].alive && tries < this.players.length);
+
+        this.turnsLeftForPlayer = turns;
+        SoundFX.playTurn();
+        this.checkBotTurn();
+      }
+
+      checkWinCondition() {
+        const alive = this.players.filter(p => p.alive);
+        if (alive.length === 1) {
+          this.winner = alive[0];
+          App.showVictoryModal(this.winner.name, `${this.winner.name} รอดชีวิตเป็นคนสุดท้ายใน Exploding Kittens!`);
+        }
+      }
+
+      checkBotTurn() {
+        const current = this.getCurrentTurnPlayer();
+        if (current && current.isBot && current.alive) {
+          setTimeout(() => {
+            const playableIdx = current.hand.findIndex(c => ['Attack', 'Skip', 'See The Future', 'Shuffle'].includes(c));
+            if (playableIdx !== -1 && Math.random() > 0.4) {
+              this.handleAction(current.id, 'play_card', { cardIndex: playableIdx });
+            } else {
+              this.handleAction(current.id, 'draw', {});
+            }
+          }, 1300);
+        }
+      }
+
+      getClientState(forPlayerId) {
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            cardCount: p.hand.length,
+            alive: p.alive,
+            hand: p.id === forPlayerId ? p.hand : null
+          })),
+          currentTurnIdx: this.currentTurnIdx,
+          turnsLeftForPlayer: this.turnsLeftForPlayer,
+          deckCount: this.deck.length,
+          lastDiscard: this.discardPile[this.discardPile.length - 1] || null
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.currentTurnIdx = state.currentTurnIdx;
+        this.turnsLeftForPlayer = state.turnsLeftForPlayer;
+        this.deckCount = state.deckCount;
+        this.lastDiscard = state.lastDiscard;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+        const isMyTurn = this.players[this.currentTurnIdx].id === myPlayerId;
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Other players -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              ${this.players.filter(p => p.id !== me.id).map(p => `
+                <div class="bg-slate-900 border ${this.players[this.currentTurnIdx].id === p.id ? 'border-amber-500 ring-2 ring-amber-500/30' : 'border-slate-800'} rounded-2xl p-3 flex flex-col justify-between ${!p.alive ? 'opacity-40 grayscale' : ''}">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white truncate">${p.name}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300">🎴 ${p.cardCount || p.hand.length} ใบ</span>
+                  </div>
+                  <div class="mt-2 text-[10px] text-slate-400">
+                    ${p.alive ? 'ยังมีชีวิตอยู่' : '💀 ระเบิดแล้ว'}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Central Deck and Discard Stack -->
+            <div class="my-auto flex items-center justify-center gap-8 py-4">
+              <!-- Draw Deck Pile -->
+              <div onclick="${isMyTurn && me.alive ? "App.sendAction('draw')" : ""}" class="w-32 h-44 rounded-2xl bg-gradient-to-tr from-amber-950 via-slate-900 to-amber-900/60 border-2 border-amber-500/50 shadow-2xl flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition group relative">
+                <span class="text-3xl mb-1 animate-bounce-subtle">💣</span>
+                <span class="text-xs font-black text-amber-400 uppercase tracking-wider">กองจั่ว</span>
+                <span class="text-xs text-slate-400 font-mono mt-1">${this.deck ? this.deck.length : (this.deckCount || 0)} ใบ</span>
+                ${isMyTurn && me.alive ? `
+                  <div class="absolute -bottom-2 bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                    กดเพื่อจั่ว!
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Discard Pile -->
+              <div class="w-32 h-44 rounded-2xl bg-slate-900/80 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center">
+                <span class="text-2xl mb-1">🗑️</span>
+                <span class="text-xs font-bold text-slate-400 uppercase">กองทิ้ง</span>
+                <span class="text-xs text-amber-300 font-semibold mt-1">
+                  ${this.discardPile ? (this.discardPile[this.discardPile.length - 1] || 'ยังว่าง') : (this.lastDiscard || 'ยังว่าง')}
+                </span>
+              </div>
+            </div>
+
+            <!-- Hand controls -->
+            <div class="mt-4 bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                <span class="text-xs font-bold text-white flex items-center gap-2">
+                  การ์ดในมือคุณ (${me.hand ? me.hand.length : 0} ใบ)
+                  ${isMyTurn ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black">เทิร์นของคุณ (เหลือ ${this.turnsLeftForPlayer} ครั้ง)</span>` : ''}
+                </span>
+                <button onclick="App.sendAction('draw')" ${!isMyTurn || !me.alive ? 'disabled' : ''} class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black px-4 py-1.5 rounded-xl text-xs disabled:opacity-40 shadow transition">
+                  จั่วการ์ดจบเทิร์น
+                </button>
+              </div>
+
+              <div class="flex gap-2.5 overflow-x-auto pb-2 custom-scrollbar">
+                ${me.hand.map((card, idx) => `
+                  <div onclick="${isMyTurn && me.alive ? `App.sendAction('play_card', { cardIndex: ${idx} })` : ''}" class="flex-shrink-0 w-28 h-36 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700 hover:border-amber-500 p-2.5 flex flex-col justify-between cursor-pointer hover:-translate-y-2 transition shadow-lg ${card === 'Defuse' ? 'border-emerald-500/60' : ''}">
+                    <span class="text-xs font-black text-amber-300 truncate">${card}</span>
+                    <div class="text-2xl text-center">
+                      ${card === 'Defuse' ? '🛠️' : card === 'Attack' ? '⚡' : card === 'Skip' ? '⏭️' : card === 'See The Future' ? '🔮' : card === 'Shuffle' ? '🔀' : '🐱'}
+                    </div>
+                    <span class="text-[9px] text-slate-400 text-center leading-tight">
+                      ${card === 'Defuse' ? 'กู้ระเบิด' : 'กดเพื่อใช้งาน'}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+    /* =========================================================
+       6. GAME ENGINE 3: CABO (คาโบ)
+       ========================================================= */
+    class CaboEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          cards: [],
+          calledCabo: false
+        }));
+        this.drawDeck = [];
+        this.discardPile = [];
+        this.currentTurnIdx = 0;
+        this.caboCallerId = null;
+        this.finalRoundTurnsLeft = -1;
+        this.drawnCard = null;
+        this.winner = null;
+      }
+
+      start() {
+        this.drawDeck = [];
+        for (let v = 0; v <= 13; v++) {
+          for (let c = 0; c < 4; c++) this.drawDeck.push(v);
+        }
+        this.drawDeck.sort(() => Math.random() - 0.5);
+
+        this.players.forEach(p => {
+          p.cards = [
+            { value: this.drawDeck.pop(), known: true },
+            { value: this.drawDeck.pop(), known: true },
+            { value: this.drawDeck.pop(), known: false },
+            { value: this.drawDeck.pop(), known: false }
+          ];
+          p.calledCabo = false;
+        });
+
+        this.discardPile = [this.drawDeck.pop()];
+        this.currentTurnIdx = 0;
+        this.caboCallerId = null;
+        this.finalRoundTurnsLeft = -1;
+        this.drawnCard = null;
+        App.addLog(`เริ่มเกม Cabo! ทุกคนดูการ์ด 2 ใบแรกของตนเองแล้ว`);
+        this.checkBotTurn();
+      }
+
+      getCurrentTurnPlayer() {
+        return this.players[this.currentTurnIdx];
+      }
+
+      getCurrentTurnPlayerName() {
+        const p = this.getCurrentTurnPlayer();
+        return p ? p.name : '';
+      }
+
+      getPhaseDescription() {
+        if (this.caboCallerId) return `🔥 ${this.players.find(p=>p.id===this.caboCallerId).name} ขาน Cabo แล้ว! รอบสุดท้าย`;
+        return this.drawnCard !== null ? `ถือการ์ดแต้ม ${this.drawnCard} อยู่` : 'เลือกจั่วหรือขาน Cabo';
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player || this.players[this.currentTurnIdx].id !== playerId) return;
+
+        if (action === 'call_cabo') {
+          if (this.caboCallerId) return;
+          this.caboCallerId = player.id;
+          player.calledCabo = true;
+          this.finalRoundTurnsLeft = this.players.length - 1;
+          App.addLog(`🚨 ${player.name} ประกาศ "CABO!" ทุกคนเล่นได้อีกคนละ 1 เทิร์น!`);
+          this.nextTurn();
+        } else if (action === 'draw_deck') {
+          if (this.drawnCard !== null) return;
+          this.drawnCard = this.drawDeck.pop();
+          SoundFX.playCard();
+          App.addLog(`${player.name} จั่วการ์ดจากกองกลาง`);
+        } else if (action === 'swap_drawn') {
+          if (this.drawnCard === null) return;
+          const targetSlot = payload.slotIndex;
+          const oldCard = player.cards[targetSlot].value;
+          player.cards[targetSlot] = { value: this.drawnCard, known: true };
+          this.discardPile.push(oldCard);
+          App.addLog(`${player.name} สลับการ์ดที่จั่วได้กับการ์ดใบที่ ${targetSlot + 1}`);
+          this.drawnCard = null;
+          this.nextTurn();
+        } else if (action === 'discard_drawn') {
+          if (this.drawnCard === null) return;
+          this.discardPile.push(this.drawnCard);
+          App.addLog(`${player.name} ทิ้งการ์ดแต้ม ${this.drawnCard}`);
+          this.drawnCard = null;
+          this.nextTurn();
+        }
+      }
+
+      nextTurn() {
+        if (this.finalRoundTurnsLeft > 0) {
+          this.finalRoundTurnsLeft--;
+        } else if (this.finalRoundTurnsLeft === 0) {
+          this.endGameAndScore();
+          return;
+        }
+
+        this.currentTurnIdx = (this.currentTurnIdx + 1) % this.players.length;
+        SoundFX.playTurn();
+        this.checkBotTurn();
+      }
+
+      endGameAndScore() {
+        let minScore = 999;
+        let winner = null;
+        let scoreReport = [];
+
+        this.players.forEach(p => {
+          const sum = p.cards.reduce((acc, c) => acc + c.value, 0);
+          scoreReport.push(`${p.name}: ${sum} แต้ม`);
+          if (sum < minScore) {
+            minScore = sum;
+            winner = p;
+          }
+        });
+
+        App.showVictoryModal(winner.name, `จบเกม Cabo! ผลคะแนน:\n${scoreReport.join(', ')}`);
+      }
+
+      checkBotTurn() {
+        const current = this.getCurrentTurnPlayer();
+        if (current && current.isBot) {
+          setTimeout(() => {
+            if (!this.caboCallerId && Math.random() < 0.2) {
+              this.handleAction(current.id, 'call_cabo', {});
+            } else {
+              this.handleAction(current.id, 'draw_deck', {});
+              setTimeout(() => {
+                const slot = Math.floor(Math.random() * 4);
+                if (this.drawnCard <= 6) {
+                  this.handleAction(current.id, 'swap_drawn', { slotIndex: slot });
+                } else {
+                  this.handleAction(current.id, 'discard_drawn', {});
+                }
+              }, 600);
+            }
+          }, 1200);
+        }
+      }
+
+      getClientState(forPlayerId) {
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            calledCabo: p.calledCabo,
+            cards: p.cards.map((c, i) => ({
+              value: (p.id === forPlayerId && c.known) ? c.value : '?'
+            }))
+          })),
+          currentTurnIdx: this.currentTurnIdx,
+          caboCallerId: this.caboCallerId,
+          topDiscard: this.discardPile[this.discardPile.length - 1],
+          drawnCard: this.drawnCard
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.currentTurnIdx = state.currentTurnIdx;
+        this.caboCallerId = state.caboCallerId;
+        this.topDiscard = state.topDiscard;
+        this.drawnCard = state.drawnCard;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+        const isMyTurn = this.players[this.currentTurnIdx].id === myPlayerId;
+        const topDiscardVal = this.discardPile ? this.discardPile[this.discardPile.length - 1] : this.topDiscard;
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Center Board: Draw & Discard -->
+            <div class="my-auto flex flex-col items-center justify-center">
+              <div class="flex items-center gap-8 mb-4">
+                <!-- Deck -->
+                <div onclick="${isMyTurn && this.drawnCard === null ? "App.sendAction('draw_deck')" : ""}" class="w-28 h-40 rounded-2xl bg-gradient-to-tr from-cyan-950 via-slate-900 to-cyan-900 border-2 border-cyan-500/50 shadow-2xl flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition">
+                  <span class="text-2xl mb-1">🃏</span>
+                  <span class="text-xs font-black text-cyan-400">กองจั่ว</span>
+                </div>
+
+                <!-- Discard Pile -->
+                <div class="w-28 h-40 rounded-2xl bg-slate-900 border-2 border-slate-700 flex flex-col items-center justify-center shadow-xl">
+                  <span class="text-xs font-bold text-slate-400 mb-1">กองทิ้ง</span>
+                  <span class="text-3xl font-black text-cyan-300">${topDiscardVal !== undefined ? topDiscardVal : '--'}</span>
+                </div>
+              </div>
+
+              <!-- Action Bar when card is drawn -->
+              ${this.drawnCard !== null && isMyTurn ? `
+                <div class="bg-slate-900 border border-cyan-500/60 p-3 rounded-2xl flex items-center gap-3 shadow-xl animate-bounce-subtle">
+                  <span class="text-xs text-white">การ์ดที่จั่วได้: <b class="text-cyan-400 text-sm font-black">[ ${this.drawnCard} ]</b></span>
+                  <button onclick="App.sendAction('discard_drawn')" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition">
+                    ทิ้งลงกอง
+                  </button>
+                  <span class="text-[11px] text-slate-400">หรือคลิกที่การ์ดของคุณข้างล่างเพื่อสลับ</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- My 4 Cards Grid (2x2) -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                <span class="text-xs font-bold text-white flex items-center gap-2">
+                  ไพ่ 4 ใบของคุณ (${me.name})
+                  ${me.calledCabo ? '<span class="text-xs text-rose-400 font-bold">ประกาศ CABO แล้ว!</span>' : ''}
+                </span>
+                ${isMyTurn && !this.caboCallerId ? `
+                  <button onclick="App.sendAction('call_cabo')" class="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-black text-xs px-4 py-1.5 rounded-xl shadow transition">
+                    ขาน "CABO!"
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="grid grid-cols-4 gap-3 max-w-lg mx-auto">
+                ${me.cards.map((c, idx) => `
+                  <div onclick="${isMyTurn && this.drawnCard !== null ? `App.sendAction('swap_drawn', { slotIndex: ${idx} })` : ''}" class="h-28 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border ${c.known ? 'border-cyan-500/60' : 'border-slate-700'} flex flex-col items-center justify-center cursor-pointer hover:-translate-y-1 transition p-2 text-center shadow-lg">
+                    <span class="text-[10px] text-slate-400">ใบที่ ${idx + 1}</span>
+                    <span class="text-2xl font-black ${c.known ? 'text-cyan-300' : 'text-slate-600'}">
+                      ${c.known ? c.value : '?'}
+                    </span>
+                    <span class="text-[9px] text-slate-500">${c.known ? 'รู้แต้ม' : 'คว่ำอยู่'}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    /* =========================================================
+       7. GAME ENGINE 4: WEREWOLF / MAFIA (มนุษย์หมาป่า)
+       ========================================================= */
+    class WerewolfEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          role: 'Villager',
+          alive: true,
+          vote: null
+        }));
+        this.phase = 'NIGHT';
+        this.nightAction = {
+          werewolfTarget: null,
+          doctorTarget: null,
+          seerChecked: null
+        };
+        this.winner = null;
+      }
+
+      start() {
+        const count = this.players.length;
+        const werewolfCount = count >= 7 ? 2 : 1;
+        const rolesPool = [
+          ...Array(werewolfCount).fill('Werewolf'),
+          'Seer',
+          'Doctor',
+          ...Array(Math.max(0, count - werewolfCount - 2)).fill('Villager')
+        ];
+        rolesPool.sort(() => Math.random() - 0.5);
+
+        this.players.forEach((p, i) => {
+          p.role = rolesPool[i] || 'Villager';
+          p.alive = true;
+          p.vote = null;
+        });
+
+        this.phase = 'NIGHT';
+        App.addLog(`พระอาทิตย์ตกดิน... รัตติกาลมาเยือน เข้าสู่เวลากลางคืน`);
+        this.simulateBotNightActions();
+      }
+
+      getCurrentTurnPlayerName() {
+        return this.phase === 'NIGHT' ? 'ราตรีกาล (ทุกคนทำหน้าที่)' : 'เวลากลางวัน (ทุกคนอภิปราย)';
+      }
+
+      getPhaseDescription() {
+        return this.phase === 'NIGHT' ? '🌙 กลางคืน: เลือกเป้าหมาย' : '☀️ กลางวัน: โหวตหาหมาป่า';
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player || !player.alive) return;
+
+        if (this.phase === 'NIGHT') {
+          if (player.role === 'Werewolf') {
+            this.nightAction.werewolfTarget = payload.targetId;
+            App.showToast('หมาป่าเลือกเป้าหมายสังหารแล้ว', 'info');
+          } else if (player.role === 'Doctor') {
+            this.nightAction.doctorTarget = payload.targetId;
+            App.showToast('หมอเลือกผู้ที่ต้องการปกป้องแล้ว', 'info');
+          } else if (player.role === 'Seer') {
+            const target = this.players.find(p => p.id === payload.targetId);
+            if (target) {
+              const isWolf = target.role === 'Werewolf';
+              alert(`🔮 ผลการส่องของ Seer: ${target.name} ${isWolf ? 'คือหมาป่า! 🐺' : 'เป็นคนบริสุทธิ์ 🧑'}`);
+            }
+          }
+        } else if (this.phase === 'DAY_VOTE') {
+          player.vote = payload.targetId;
+          App.addLog(`${player.name} ลงคะแนนโหวตแล้ว`);
+          const alive = this.players.filter(p => p.alive);
+          if (alive.every(p => p.vote !== null)) {
+            this.tallyDayVotes();
+          }
+        }
+      }
+
+      simulateBotNightActions() {
+        setTimeout(() => {
+          const aliveVillagers = this.players.filter(p => p.alive && p.role !== 'Werewolf');
+          if (aliveVillagers.length > 0) {
+            this.nightAction.werewolfTarget = aliveVillagers[Math.floor(Math.random() * aliveVillagers.length)].id;
+          }
+          const aliveAll = this.players.filter(p => p.alive);
+          this.nightAction.doctorTarget = aliveAll[Math.floor(Math.random() * aliveAll.length)].id;
+        }, 1000);
+      }
+
+      advanceToDay() {
+        this.phase = 'DAY_DISCUSSION';
+        let victim = null;
+        if (this.nightAction.werewolfTarget && this.nightAction.werewolfTarget !== this.nightAction.doctorTarget) {
+          victim = this.players.find(p => p.id === this.nightAction.werewolfTarget);
+          if (victim) {
+            victim.alive = false;
+            App.addLog(`☀️ ยามเช้ามาถึง... พบร่างของ ${victim.name} เสียชีวิตในคืนที่ผ่านมา! 💀`);
+          }
+        } else {
+          App.addLog(`☀️ ยามเช้ามาถึง... เมื่อคืนนี้ไม่มีใครเสียชีวิต! (หมอปกป้องสำเร็จ) 🛡️`);
+        }
+
+        this.checkWinCondition();
+        if (this.winner) return;
+
+        this.players.forEach(p => p.vote = null);
+        SoundFX.playTurn();
+      }
+
+      startDayVote() {
+        this.phase = 'DAY_VOTE';
+        App.addLog(`📢 เริ่มต้นการลงคะแนนโหวตประหารชีวิต!`);
+        this.players.filter(p => p.isBot && p.alive).forEach(bot => {
+          const others = this.players.filter(p => p.alive && p.id !== bot.id);
+          bot.vote = others[Math.floor(Math.random() * others.length)].id;
+        });
+      }
+
+      tallyDayVotes() {
+        const counts = {};
+        this.players.filter(p => p.alive && p.vote).forEach(p => {
+          counts[p.vote] = (counts[p.vote] || 0) + 1;
+        });
+
+        let highestVotes = 0;
+        let executedId = null;
+        for (const [id, count] of Object.entries(counts)) {
+          if (count > highestVotes) {
+            highestVotes = count;
+            executedId = id;
+          }
+        }
+
+        if (executedId) {
+          const executed = this.players.find(p => p.id === executedId);
+          executed.alive = false;
+          App.addLog(`⚖️ หมู่บ้านมีมติประหารชีวิต ${executed.name} (มีบทบาทเป็น ${executed.role})!`);
+        } else {
+          App.addLog(`⚖️ คะแนนโหวตเสมอกัน ไม่มีใครถูกประหารชีวิต`);
+        }
+
+        this.checkWinCondition();
+        if (!this.winner) {
+          this.phase = 'NIGHT';
+          this.nightAction = { werewolfTarget: null, doctorTarget: null, seerChecked: null };
+          this.simulateBotNightActions();
+          App.addLog(`พระอาทิตย์ตกดินอีกครั้ง... เข้าสู่เวลากลางคืน 🌙`);
+        }
+      }
+
+      checkWinCondition() {
+        const wolves = this.players.filter(p => p.alive && p.role === 'Werewolf');
+        const villagers = this.players.filter(p => p.alive && p.role !== 'Werewolf');
+
+        if (wolves.length === 0) {
+          this.winner = 'ชาวบ้าน (Villagers)';
+          App.showVictoryModal(this.winner, 'ชาวบ้านกำจัดหมาป่าได้หมดสิ้นและปกป้องหมู่บ้านได้สำเร็จ!');
+        } else if (wolves.length >= villagers.length) {
+          this.winner = 'มนุษย์หมาป่า (Werewolves)';
+          App.showVictoryModal(this.winner, 'มนุษย์หมาป่ายึดครองหมู่บ้านสำเร็จ!');
+        }
+      }
+
+      getClientState(forPlayerId) {
+        const me = this.players.find(p => p.id === forPlayerId);
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            alive: p.alive,
+            vote: p.vote,
+            role: (p.id === forPlayerId ? p.role : null)
+          })),
+          phase: this.phase,
+          myRole: me ? me.role : 'Villager'
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.phase = state.phase;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Village Members Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              ${this.players.map(p => `
+                <div class="bg-slate-900 border ${p.alive ? 'border-slate-800' : 'border-rose-950 opacity-40 grayscale'} rounded-2xl p-3 flex flex-col justify-between">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white truncate">${p.name}</span>
+                    <span class="text-[10px] ${p.alive ? 'text-emerald-400' : 'text-rose-400'}">
+                      ${p.alive ? '❤️ รอด' : '💀 ตาย'}
+                    </span>
+                  </div>
+                  ${this.phase === 'DAY_VOTE' && p.alive ? `
+                    <button onclick="App.sendAction('vote', { targetId: '${p.id}' })" class="mt-2 text-xs bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white py-1 rounded-lg border border-rose-500/40 transition">
+                      โหวตประหาร
+                    </button>
+                  ` : ''}
+                  ${this.phase === 'NIGHT' && me.alive && me.role !== 'Villager' && p.alive && p.id !== me.id ? `
+                    <button onclick="App.sendAction('night_target', { targetId: '${p.id}' })" class="mt-2 text-xs bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 py-1 rounded-lg border border-indigo-500/40 transition">
+                      เลือกเป้าหมาย
+                    </button>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Daytime Advancement Trigger (for Host) -->
+            <div class="my-auto text-center">
+              ${this.phase === 'NIGHT' && App.isHost ? `
+                <button onclick="App.gameEngine.advanceToDay(); App.broadcastGameState();" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-600/30">
+                  ☀️ สว่างแล้ว! เข้าสู่เวลากลางวัน
+                </button>
+              ` : ''}
+              ${this.phase === 'DAY_DISCUSSION' && App.isHost ? `
+                <button onclick="App.gameEngine.startDayVote(); App.broadcastGameState();" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-lg shadow-rose-600/30">
+                  🗳️ เริ่มเปิดหีบโหวตประหาร
+                </button>
+              ` : ''}
+            </div>
+
+            <!-- Role Card -->
+            <div class="mt-4 bg-slate-900/90 border border-indigo-500/40 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-xs text-slate-400">บทบาทลับของคุณ:</span>
+                  <h4 class="text-lg font-black text-indigo-300 flex items-center gap-2">
+                    ${me.role === 'Werewolf' ? '🐺 Werewolf (หมาป่า)' : me.role === 'Seer' ? '🔮 Seer (ผู้หยั่งรู้)' : me.role === 'Doctor' ? '💉 Doctor (หมอ)' : '🧑 Villager (ชาวบ้าน)'}
+                  </h4>
+                </div>
+                <div class="text-xs text-slate-400 text-right">
+                  สถานะ: <b class="${me.alive ? 'text-emerald-400' : 'text-rose-400'}">${me.alive ? 'ยังมีชีวิต' : 'เสียชีวิตแล้ว'}</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+    /* =========================================================
+       8. GAME ENGINE 5: UNO (อูโน่)
+       ========================================================= */
+    class UnoEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          hand: [],
+          saidUno: false
+        }));
+        this.deck = [];
+        this.discardPile = [];
+        this.currentColor = 'red';
+        this.currentValue = '0';
+        this.currentTurnIdx = 0;
+        this.direction = 1;
+        this.winner = null;
+      }
+
+      start() {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        this.deck = [];
+
+        colors.forEach(color => {
+          this.deck.push({ color, value: '0' });
+          for (let v = 1; v <= 9; v++) {
+            this.deck.push({ color, value: String(v) });
+            this.deck.push({ color, value: String(v) });
+          }
+          ['Skip', 'Reverse', 'Draw Two'].forEach(act => {
+            this.deck.push({ color, value: act });
+            this.deck.push({ color, value: act });
+          });
+        });
+        for (let i = 0; i < 4; i++) {
+          this.deck.push({ color: 'wild', value: 'Wild' });
+          this.deck.push({ color: 'wild', value: 'Wild Draw Four' });
+        }
+        this.deck.sort(() => Math.random() - 0.5);
+
+        this.players.forEach(p => {
+          p.hand = [];
+          for (let i = 0; i < 7; i++) p.hand.push(this.deck.pop());
+          p.saidUno = false;
+        });
+
+        let first = this.deck.pop();
+        while (first.color === 'wild') {
+          this.deck.unshift(first);
+          first = this.deck.pop();
+        }
+        this.discardPile = [first];
+        this.currentColor = first.color;
+        this.currentValue = first.value;
+
+        this.currentTurnIdx = 0;
+        this.direction = 1;
+        App.addLog(`เริ่มเกม UNO! ไพ่เริ่มต้นคือ [${first.color} ${first.value}]`);
+        this.checkBotTurn();
+      }
+
+      getCurrentTurnPlayer() {
+        return this.players[this.currentTurnIdx];
+      }
+
+      getCurrentTurnPlayerName() {
+        const p = this.getCurrentTurnPlayer();
+        return p ? p.name : '';
+      }
+
+      getPhaseDescription() {
+        return `สีปัจจุบัน: ${this.currentColor.toUpperCase()} • กองจั่วเหลือ ${this.deck.length} ใบ`;
+      }
+
+      canPlay(card) {
+        if (card.color === 'wild') return true;
+        return card.color === this.currentColor || card.value === this.currentValue;
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player || this.players[this.currentTurnIdx].id !== playerId) return;
+
+        if (action === 'draw') {
+          if (this.deck.length === 0) return;
+          const card = this.deck.pop();
+          player.hand.push(card);
+          App.addLog(`${player.name} จั่วไพ่ 1 ใบ`);
+          SoundFX.playCard();
+          this.nextTurn();
+        } else if (action === 'play_card') {
+          const card = player.hand[payload.cardIndex];
+          if (!this.canPlay(card)) {
+            App.showToast('ไม่สามารถลงไพ่ใบนี้ได้ (สีหรือเลขไม่ตรง)', 'error');
+            return;
+          }
+
+          player.hand.splice(payload.cardIndex, 1);
+          this.discardPile.push(card);
+          this.currentValue = card.value;
+          this.currentColor = card.color === 'wild' ? (payload.chosenColor || 'red') : card.color;
+          SoundFX.playCard();
+          App.addLog(`${player.name} ลงไพ่ [${card.value}] ${card.color === 'wild' ? `(เลือกสี ${this.currentColor})` : ''}`);
+
+          let skipNext = false;
+          if (card.value === 'Reverse') {
+            this.direction *= -1;
+            App.addLog(`🔄 สลับทิศทางการเล่น!`);
+          } else if (card.value === 'Skip') {
+            skipNext = true;
+            App.addLog(`ข้ามเทิร์นผู้เล่นคนถัดไป!`);
+          } else if (card.value === 'Draw Two') {
+            const nextP = this.getNextPlayer();
+            nextP.hand.push(this.deck.pop(), this.deck.pop());
+            skipNext = true;
+            App.addLog(`${nextP.name} โดน Draw Two (+2 ใบ)!`);
+          } else if (card.value === 'Wild Draw Four') {
+            const nextP = this.getNextPlayer();
+            for (let i = 0; i < 4; i++) nextP.hand.push(this.deck.pop());
+            skipNext = true;
+            App.addLog(`${nextP.name} โดน Wild Draw Four (+4 ใบ)!`);
+          }
+
+          if (player.hand.length === 0) {
+            this.winner = player;
+            App.showVictoryModal(player.name, `${player.name} ทิ้งการ์ดหมดมือและคว้าชัยชนะในเกม UNO!`);
+            return;
+          }
+
+          this.nextTurn(skipNext ? 2 : 1);
+        } else if (action === 'say_uno') {
+          player.saidUno = true;
+          App.addLog(`📢 ${player.name} ตะโกน "UNO!"`);
+        }
+      }
+
+      getNextPlayer() {
+        const nextIdx = (this.currentTurnIdx + this.direction + this.players.length) % this.players.length;
+        return this.players[nextIdx];
+      }
+
+      nextTurn(steps = 1) {
+        this.currentTurnIdx = (this.currentTurnIdx + (this.direction * steps) + (this.players.length * 10)) % this.players.length;
+        SoundFX.playTurn();
+        this.checkBotTurn();
+      }
+
+      checkBotTurn() {
+        const current = this.getCurrentTurnPlayer();
+        if (current && current.isBot) {
+          setTimeout(() => {
+            const playableIdx = current.hand.findIndex(c => this.canPlay(c));
+            if (playableIdx !== -1) {
+              const colors = ['red', 'blue', 'green', 'yellow'];
+              this.handleAction(current.id, 'play_card', {
+                cardIndex: playableIdx,
+                chosenColor: colors[Math.floor(Math.random() * colors.length)]
+              });
+            } else {
+              this.handleAction(current.id, 'draw', {});
+            }
+          }, 1200);
+        }
+      }
+
+      getClientState(forPlayerId) {
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            cardCount: p.hand.length,
+            hand: p.id === forPlayerId ? p.hand : null
+          })),
+          currentTurnIdx: this.currentTurnIdx,
+          currentColor: this.currentColor,
+          currentValue: this.currentValue,
+          deckCount: this.deck.length
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.currentTurnIdx = state.currentTurnIdx;
+        this.currentColor = state.currentColor;
+        this.currentValue = state.currentValue;
+        this.deckCount = state.deckCount;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+        const isMyTurn = this.players[this.currentTurnIdx].id === myPlayerId;
+        const colorClasses = {
+          red: 'bg-rose-600 text-white border-rose-400',
+          blue: 'bg-blue-600 text-white border-blue-400',
+          green: 'bg-emerald-600 text-white border-emerald-400',
+          yellow: 'bg-amber-500 text-slate-950 border-amber-300',
+          wild: 'bg-purple-900 text-white border-purple-400'
+        };
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Opponents -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+              ${this.players.filter(p => p.id !== me.id).map(p => `
+                <div class="bg-slate-900 border ${this.players[this.currentTurnIdx].id === p.id ? 'border-yellow-500 ring-2 ring-yellow-500/30' : 'border-slate-800'} rounded-2xl p-3 flex flex-col justify-between">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white truncate">${p.name}</span>
+                    <span class="text-xs font-black text-amber-400">${p.cardCount || p.hand.length} ใบ</span>
+                  </div>
+                  ${(p.cardCount || p.hand.length) === 1 ? '<span class="text-[10px] text-rose-400 font-bold animate-pulse">เหลือ 1 ใบ (UNO!)</span>' : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Center Table -->
+            <div class="my-auto flex flex-col items-center justify-center">
+              <div class="flex items-center gap-8 mb-3">
+                <!-- Draw Pile -->
+                <div onclick="${isMyTurn ? "App.sendAction('draw')" : ""}" class="w-28 h-40 rounded-2xl bg-gradient-to-tr from-slate-900 to-slate-800 border-2 border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:scale-105 transition shadow-2xl">
+                  <span class="text-2xl font-black text-yellow-400">UNO</span>
+                  <span class="text-[10px] text-slate-400 mt-1">${this.deck ? this.deck.length : (this.deckCount || 0)} ใบ</span>
+                </div>
+
+                <!-- Top Discard Card -->
+                <div class="w-28 h-40 rounded-2xl border-4 shadow-2xl flex flex-col items-center justify-center ${colorClasses[this.currentColor] || 'bg-slate-800 text-white'}">
+                  <span class="text-3xl font-black">${this.currentValue}</span>
+                  <span class="text-[10px] uppercase font-bold tracking-wider mt-1">${this.currentColor}</span>
+                </div>
+              </div>
+
+              ${me.hand.length <= 2 ? `
+                <button onclick="App.sendAction('say_uno')" class="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-black px-6 py-2 rounded-2xl text-sm shadow-xl shadow-yellow-500/30 animate-pulse">
+                  กดพูดว่า "UNO!" 🔥
+                </button>
+              ` : ''}
+            </div>
+
+            <!-- My Hand -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
+                <span class="text-xs font-bold text-white">ไพ่ในมือคุณ (${me.hand.length} ใบ)</span>
+                <button onclick="App.sendAction('draw')" ${!isMyTurn ? 'disabled' : ''} class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded-xl border border-slate-700 disabled:opacity-40">
+                  + จั่วการ์ด
+                </button>
+              </div>
+
+              <div class="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                ${me.hand.map((card, idx) => {
+                  const playable = this.canPlay(card);
+                  return `
+                    <div onclick="${isMyTurn && playable ? `App.sendUnoCard(${idx}, '${card.color}')` : ''}" class="flex-shrink-0 w-24 h-36 rounded-xl border-2 p-2 flex flex-col justify-between cursor-pointer transition ${colorClasses[card.color]} ${playable && isMyTurn ? 'ring-2 ring-white hover:-translate-y-2' : 'opacity-50 cursor-not-allowed'}">
+                      <span class="text-xs font-black">${card.value}</span>
+                      <span class="text-xl text-center font-black">${card.value}</span>
+                      <span class="text-[9px] text-right">${card.color}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    App.sendUnoCard = function(idx, cardColor) {
+      if (cardColor === 'wild') {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        const chosen = prompt('เลือกสีที่ต้องการเปลี่ยน (red, blue, green, yellow):', 'red');
+        const finalColor = colors.includes(chosen) ? chosen : 'red';
+        this.sendAction('play_card', { cardIndex: idx, chosenColor: finalColor });
+      } else {
+        this.sendAction('play_card', { cardIndex: idx });
+      }
+    };
+
+    /* =========================================================
+       9. GAME ENGINE 6: INSIDER (คนวงใน)
+       ========================================================= */
+    class InsiderEngine {
+      constructor(players) {
+        this.players = players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isBot: p.isBot,
+          role: 'Commons'
+        }));
+        this.secretWord = '';
+        this.phase = 'QA';
+        this.questionsCount = 0;
+        this.maxQuestions = 20;
+        this.questionsLog = [];
+        this.winner = null;
+      }
+
+      start() {
+        const words = ['กาแฟ', 'พิซซ่า', 'สมาร์ทโฟน', 'ไดโนเสาร์', 'ภูเขาไฟ', 'เครื่องบิน', 'แว่นตา', 'แมวดำ', 'กีตาร์', 'รถไฟเหาะ'];
+        this.secretWord = words[Math.floor(Math.random() * words.length)];
+
+        const shuffled = [...this.players].sort(() => Math.random() - 0.5);
+        shuffled[0].role = 'Master';
+        shuffled[1].role = 'Insider';
+        for (let i = 2; i < shuffled.length; i++) shuffled[i].role = 'Commons';
+
+        this.phase = 'QA';
+        this.questionsCount = 0;
+        this.questionsLog = [];
+        App.addLog(`เริ่มเกม Insider! Master และ Insider รู้คำลับเรียบร้อยแล้ว เริ่มถามคำถามได้!`);
+      }
+
+      getCurrentTurnPlayerName() {
+        return 'ทุกคนสามารถถามได้';
+      }
+
+      getPhaseDescription() {
+        return this.phase === 'QA' ? `ถามไปแล้ว ${this.questionsCount}/${this.maxQuestions} คำถาม` : 'โหวตหาตัว Insider!';
+      }
+
+      handleAction(playerId, action, payload) {
+        const player = this.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        if (action === 'ask_question') {
+          this.questionsCount++;
+          this.questionsLog.unshift({ player: player.name, text: payload.text });
+          App.addLog(`❓ ${player.name} ถาม: "${payload.text}"`);
+        } else if (action === 'guess_word') {
+          if (payload.guess.trim().toLowerCase() === this.secretWord.toLowerCase()) {
+            App.addLog(`🎉 มีคนทายคำลับถูก! คำนั้นคือ [${this.secretWord}]! เข้าสู่เฟสโหวตหา Insider`);
+            this.phase = 'VOTE_INSIDER';
+          } else {
+            App.addLog(`❌ ${player.name} ทายว่า "${payload.guess}" แต่ยังไม่ถูกต้อง!`);
+          }
+        }
+      }
+
+      getClientState(forPlayerId) {
+        const me = this.players.find(p => p.id === forPlayerId);
+        const knowsWord = me && (me.role === 'Master' || me.role === 'Insider');
+        return {
+          players: this.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            role: p.id === forPlayerId ? p.role : null
+          })),
+          secretWord: knowsWord ? this.secretWord : '??? (คำลับ)',
+          phase: this.phase,
+          questionsCount: this.questionsCount,
+          questionsLog: this.questionsLog
+        };
+      }
+
+      applyClientState(state) {
+        this.players = state.players;
+        this.secretWord = state.secretWord;
+        this.phase = state.phase;
+        this.questionsCount = state.questionsCount;
+        this.questionsLog = state.questionsLog;
+      }
+
+      renderHTML(myPlayerId) {
+        const me = this.players.find(p => p.id === myPlayerId) || this.players[0];
+
+        return `
+          <div class="flex-1 flex flex-col justify-between p-2 sm:p-4">
+            <!-- Secret Role & Word Info -->
+            <div class="bg-slate-900 border border-emerald-500/40 rounded-3xl p-4 shadow-xl mb-4 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-slate-400">บทบาทของคุณ:</span>
+                <h4 class="text-lg font-black text-emerald-400">${me.role}</h4>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400">คำลับ (Secret Word):</span>
+                <h4 class="text-lg font-black text-amber-300 font-mono">${this.secretWord}</h4>
+              </div>
+            </div>
+
+            <!-- Q&A Feed -->
+            <div class="flex-1 bg-slate-900/60 border border-slate-800 rounded-3xl p-4 overflow-y-auto custom-scrollbar mb-4 space-y-2">
+              <h5 class="text-xs font-bold text-slate-400 mb-2">ประวัติคำถาม (จำกัด 20 คำถาม)</h5>
+              ${this.questionsLog.length === 0 ? '<p class="text-xs text-slate-500 text-center py-8">ยังไม่มีคำถาม เริ่มต้นพิมพ์ถาม Master ได้เลย!</p>' : ''}
+              ${this.questionsLog.map(q => `
+                <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs">
+                  <span class="font-bold text-emerald-300">${q.player}:</span> ${q.text}
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Input Question / Guess -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col sm:flex-row gap-2">
+              <input id="input-insider-q" type="text" placeholder="พิมพ์คำถาม หรือพิมพ์คำตอบที่ต้องการทาย..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <div class="flex gap-2">
+                <button onclick="App.sendInsiderQ()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+                  ถามคำถาม
+                </button>
+                <button onclick="App.sendInsiderGuess()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow">
+                  ทายคำลับ!
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    App.sendInsiderQ = function() {
+      const input = document.getElementById('input-insider-q');
+      if (!input || !input.value.trim()) return;
+      this.sendAction('ask_question', { text: input.value.trim() });
+      input.value = '';
+    };
+
+    App.sendInsiderGuess = function() {
+      const input = document.getElementById('input-insider-q');
+      if (!input || !input.value.trim()) return;
+      this.sendAction('guess_word', { guess: input.value.trim() });
+      input.value = '';
+    };
+
+    window.addEventListener('DOMContentLoaded', () => App.init());
+  </script>
+</body>
+</html>
